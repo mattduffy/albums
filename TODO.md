@@ -1,0 +1,16 @@
+- [ ] Add mongodb connection.
+- [ ] Add generic album properties to base Album class definition.
+- [ ] Add subclass defintions for different types of albums.
+- [ ] Implement iterable interface. 
+- [ ] Implement generic user.keys(), user.values(), and user.entries() methods.
+- [ ] Add exif parsing library to extract EXIF data from images.
+- [ ] Create method to extract images from zip archive and populate folder on filesystem.
+- [ ] Create method(s) to generate album.json file containing all details of the files.
+- [ ] Create method(s) to edit existing album.json files.
+- [ ] Integrate with the @mattduffy/mft package to add JWT functionality.
+- [ ] Create a test to receive and extract a zip archive to filesystem.
+- [ ] Create a test to extract EXIF data from image files.
+- [ ] Create a test to generate album.json files.
+- [ ] Create a test to edit an existing album.json file.
+- [ ] Publish as npm package.
+- [ ] ...

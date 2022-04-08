@@ -1,0 +1,22 @@
+{
+  "name": "@mattduffy/albums",
+  "version": "1.0.0",
+  "description": "Create albums from an archive of files, usually images.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mattduffy/albums.git"
+  },
+  "author": "mattduffy@gmail.com",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mattduffy/albums/issues"
+  },
+  "homepage": "https://github.com/mattduffy/albums#readme",
+  "devDependencies": {
+    "eslint": "^8.12.0"
+  }
+}
