@@ -3,6 +3,14 @@
   "version": "1.0.0",
   "description": "Create albums from an archive of files, usually images.",
   "main": "index.js",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "index.js"
+    },
+    "package.json": "./package.json",
+    "./tests": "./tests/*.js"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

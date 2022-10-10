@@ -1,3 +1,9 @@
+# x.509 keys for testing
+*.pem
+*.crt
+*.cert
+*.csr
+
 # Logs
 logs
 *.log
