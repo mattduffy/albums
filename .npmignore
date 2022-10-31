@@ -1,3 +1,7 @@
+exiftool.config
+test
+fileURLToPath.js
+TODO.md
 .*.swp
 ._*
 .DS_Store
