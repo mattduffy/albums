@@ -1,5 +1,5 @@
 exiftool.config
-test
+config/*
 fileURLToPath.js
 TODO.md
 .*.swp

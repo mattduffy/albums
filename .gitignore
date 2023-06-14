@@ -1,6 +1,8 @@
 # my stuff
 exiftool.config
 fileURLToPath.js
+config/*
+tmp/*
 
 # x.509 keys for testing
 *.pem

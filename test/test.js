@@ -1,7 +1,7 @@
 const util = require('node:util')
 const exiftool = util.promisify(require('node:child_process').exec)
 
-//console.log(`pwd: ${process.cwd()}`)
+// console.log(`pwd: ${process.cwd()}`)
 const cwd = process.cwd()
 const jpg = `${cwd}/test/IMG_1820.jpg`
 const jpg1 = `${cwd}/test/copper.jpg`
@@ -26,12 +26,12 @@ async function getExifTagValue(options, tag, img) {
   console.error(stderr)
 }
 
-//getAllExifData(heic)
-//getAllExifData(jpg)
+// getAllExifData(heic)
+// getAllExifData(jpg)
 
 getExifTagValue(opts, '-ObjectName -MattsShortcut', jpg1)
-//getExifTagValue(opts, '-ObjectName -Keywords', jpg1)
-//getExifTagValue(opts, '-Keywords', jpg1)
+// getExifTagValue(opts, '-ObjectName -Keywords', jpg1)
+// getExifTagValue(opts, '-Keywords', jpg1)
 
 exports.getTag = getExifTagValue
 exports.getAllTags = getAllExifData
