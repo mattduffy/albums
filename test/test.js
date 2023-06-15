@@ -1,16 +1,24 @@
-const util = require('node:util')
-const exiftool = util.promisify(require('node:child_process').exec)
+import { promisify } from 'node:util'
+import { exec } from 'node:child_process'
+import { Album } from '../src/index.js'
+import { _log, _error } from '../src/utils/debug.js'
+
+const exiftool = promisify(exec)
 
 // console.log(`pwd: ${process.cwd()}`)
 const cwd = process.cwd()
 const jpg = `${cwd}/test/IMG_1820.jpg`
 const jpg1 = `${cwd}/test/copper.jpg`
 const heic = `${cwd}/test/IMG_1820.heic`
+const name = process.env.SITE_NAME ?? 'no name'
+const log = _log.extend('test')
+const error = _error.extend('test')
+log(`${name}`)
 
 async function getAllExifData(img) {
   const { stdout, stderr } = await exiftool(`/usr/local/bin/exiftool -list ${img}`)
-  console.log(stdout)
-  console.error(stderr)
+  log(stdout)
+  error(stderr)
 }
 
 /*
@@ -22,8 +30,8 @@ async function getAllExifData(img) {
 const opts = `-config ${cwd}/exiftool.config -json -s3 -G -c "%.6f"`
 async function getExifTagValue(options, tag, img) {
   const { stdout, stderr } = await exiftool(`/usr/local/bin/exiftool ${options} ${tag} ${img}`)
-  console.log(stdout)
-  console.error(stderr)
+  log(stdout)
+  error(stderr)
 }
 
 // getAllExifData(heic)
@@ -33,5 +41,7 @@ getExifTagValue(opts, '-ObjectName -MattsShortcut', jpg1)
 // getExifTagValue(opts, '-ObjectName -Keywords', jpg1)
 // getExifTagValue(opts, '-Keywords', jpg1)
 
-exports.getTag = getExifTagValue
-exports.getAllTags = getAllExifData
+export {
+  getExifTagValue as getTag,
+  getAllExifData as getAllTags,
+}
