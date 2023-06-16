@@ -1,6 +1,6 @@
 {
   "name": "@mattduffy/albums",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Create albums from an archive of files, usually images.",
   "author": "mattduffy@gmail.com",
   "license": "ISC",
