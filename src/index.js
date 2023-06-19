@@ -15,6 +15,10 @@ import { _log, _error } from './utils/debug.js'
  * @author Matthew Duffy <mattduffy@gmail.com>
  */
 class Album {
+  #log
+
+  #error
+
   #redis
 
   #mongo
@@ -36,8 +40,8 @@ class Album {
    * @return { Album }
    */
   constructor(config = {}) {
-    const log = _log.extend('constructor')
-    const error = _error.extend('constructor')
+    this.#log = _log.extend('constructor')
+    this.#error = _error.extend('constructor')
     this.#redis = config?.redis ?? null
     this.#mongo = config?.mongo ?? config?.db ?? null
     this.#rootDir = config?.rootDir ?? process.env.ALBUMS_ROOT_DIR ?? './albums'
@@ -48,7 +52,30 @@ class Album {
   }
 
   async #checkRootDirExists() {
+    const log = _log.extend('checkRootDirExists')
+    const error = _error.extend('checkRootDirExists')
+    let dir
+    let stats
+    try {
+      dir = path.resolve(this.#rootDir)
+      stats = await fs.stat(dir)
+    } catch (e) {
+      error(e)
+      error(`Expected album root dir is missing: ${dir}`)
+      // throw new Error(e)
+      return false
+    }
+    log(stats.isDirectory())
+    return stats.isDirectory()
+  }
 
+  async #makeRootDir(dirPath) {
+    const dir = await fs.mkdir(path.resolve(dirPath), { recursive: true })
+    this.#log(dir)
+    if (!dir) {
+      return false
+    }
+    return dir
   }
 
   set redisClient(client) {
@@ -64,7 +91,22 @@ class Album {
   }
 
   set rootDir(dirPath) {
-    this.#rootDir = dirPath
+    let root
+    const exists = await this.#checkRootDirExists(dirPath)
+    this.#log(`root dir exists: ${exists}`)
+    if (exists) {
+      this.#log('ok')
+    } else {
+      this.#log('no root dir yet.')
+      root = this.#makeRootDir(dirPath)
+      if (!root) {
+        this.#error('mkdir failed')
+        throw new Error(`Failed to make album root dir: ${dirPath}`)
+      } else {
+        this.#rootDir = root
+        this.#log(this.#rootDir)
+      }
+    }
   }
 
   get id() {
@@ -98,7 +140,6 @@ class Album {
   set owner(owner) {
     this.#albumOwner = owner
   }
-
 }
 
 export { Album }
