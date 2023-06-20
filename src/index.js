@@ -51,6 +51,11 @@ class Album {
     this.#albumOwner = config?.albumOwner ?? config.owner ?? null
   }
 
+  async init() {
+    if (this.#rootDir) {
+    }     
+  }
+
   async #checkRootDirExists() {
     const log = _log.extend('checkRootDirExists')
     const error = _error.extend('checkRootDirExists')
@@ -90,7 +95,7 @@ class Album {
     return this.#rootDir
   }
 
-  set rootDir(dirPath) {
+  async setRootDir(dirPath) {
     let root
     const exists = await this.#checkRootDirExists(dirPath)
     this.#log(`root dir exists: ${exists}`)
@@ -98,7 +103,7 @@ class Album {
       this.#log('ok')
     } else {
       this.#log('no root dir yet.')
-      root = this.#makeRootDir(dirPath)
+      root = await this.#makeRootDir(dirPath)
       if (!root) {
         this.#error('mkdir failed')
         throw new Error(`Failed to make album root dir: ${dirPath}`)
