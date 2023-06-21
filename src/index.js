@@ -6,7 +6,12 @@
 
 import path from 'node:path'
 import fs from 'node:fs/promises'
-import { _log, _error } from './utils/debug.js'
+import {
+  _log,
+  _info,
+  _warn,
+  _error,
+} from './utils/debug.js'
 
 /**
  * A class to model the shape a properties of an album of items, usually photos.
@@ -19,9 +24,11 @@ class Album {
 
   #error
 
+  #mongo
+
   #redis
 
-  #mongo
+  #cached
 
   #rootDir
 
@@ -52,12 +59,26 @@ class Album {
   }
 
   async init() {
-    if (this.#rootDir) {
-    }     
+    const log = _log.extend('init')
+    const error = _error.extend('init')
+    let dir
+    try {
+      dir = await this.#checkRootDirExists()
+      log(dir)
+      if (!dir) {
+        dir = await this.#makeRootDir(this.#rootDir)
+      }
+    } catch (e) {
+      error(e)
+      throw new Error(e)
+    }
+    return this
   }
 
   async #checkRootDirExists() {
     const log = _log.extend('checkRootDirExists')
+    const info = _info.extend('checkRootDirExists')
+    const warn = _warn.extend('checkRootDirExists')
     const error = _error.extend('checkRootDirExists')
     let dir
     let stats
@@ -65,20 +86,30 @@ class Album {
       dir = path.resolve(this.#rootDir)
       stats = await fs.stat(dir)
     } catch (e) {
-      error(e)
-      error(`Expected album root dir is missing: ${dir}`)
+      warn(e)
+      warn(`Expected album root dir is missing: ${dir}`)
       // throw new Error(e)
       return false
     }
-    log(stats.isDirectory())
+    info(stats.isDirectory())
     return stats.isDirectory()
   }
 
   async #makeRootDir(dirPath) {
-    const dir = await fs.mkdir(path.resolve(dirPath), { recursive: true })
-    this.#log(dir)
-    if (!dir) {
-      return false
+    const log = _log.extend('makeRootDir')
+    const info = _info.extend('makeRootDir')
+    const error = _error.extend('makeRootDir')
+    let dir
+    try {
+      info(`rootDir: ${path.resolve(this.#rootDir)} ?= dirPath: ${path.resolve(dirPath)}`)
+      dir = await fs.mkdir(path.resolve(dirPath), { recursive: true })
+      log(dir)
+      if (!dir) {
+        return false
+      }
+    } catch (e) {
+      error(e)
+      throw new Error(e)
     }
     return dir
   }
@@ -112,6 +143,7 @@ class Album {
         this.#log(this.#rootDir)
       }
     }
+    return this
   }
 
   get id() {

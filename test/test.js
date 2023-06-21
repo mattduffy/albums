@@ -1,18 +1,20 @@
 import { describe, it, after } from 'node:test'
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
 import assert from 'node:assert/strict'
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import { Album } from '../src/index.js'
-import { _log, _error } from '../src/utils/debug.js'
 import { io as redis } from '../lib/redis-client.js'
 import { client as mongo } from '../lib/mongodb-client.js'
+import {
+  _log,
+  _info,
+  _warn,
+  _error,
+} from '../src/utils/debug.js'
 
-await mongo.connect()
-const db = mongo.db(process.env.MONGODB_DBNAME)
-const collection = mongo.collection(process.env.MONGODB_COLLECTION)
 const log = _log.extend('test')
+const info = _info.extend('test')
+const warn = _warn.extend('test')
 const error = _error.extend('test')
 
 describe('First test for albums package', async () => {
