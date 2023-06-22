@@ -16,6 +16,7 @@
   },
   "exports": {
     ".": "./src/index.js",
+    "./Albums": "./src/Albums.js",
     "./test": "./test/*.js",
     "./package.json": "./package.json"
   },
