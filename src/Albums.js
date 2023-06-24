@@ -15,6 +15,12 @@ class Albums {
     this.#redis = config?.redis ?? null
     this.#mongo = config?.mongo ?? null
   }
+
+  static async recentlyAdded(redis, count = 10) {
+    const recentlyAddedStream = 'albums:recent:10'
+    const recent10 = await redis.xrevrange(recentlyAddedStream, '+', '-', 'COUNT', count)
+    return recent10
+  }
 }
 export {
   Albums,
