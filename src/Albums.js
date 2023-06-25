@@ -21,6 +21,13 @@ class Albums {
     const recent10 = await redis.xrevrange(recentlyAddedStream, '+', '-', 'COUNT', count)
     return recent10
   }
+
+  static async usersWithPublicAlbums(mongo) {
+    const publicAlbumsView = 'publicAlbumsView'
+    const collection = mongo.collection(publicAlbumsView)
+    const publicList = await collection.find().toArray()
+    return publicList
+  }
 }
 export {
   Albums,
