@@ -18,7 +18,10 @@ class Albums {
 
   static async recentlyAdded(redis, count = 10) {
     const recentlyAddedStream = 'albums:recent:10'
-    const recent10 = await redis.xrevrange(recentlyAddedStream, '+', '-', 'COUNT', count)
+    const response = await redis.xrevrange(recentlyAddedStream, '+', '-', 'COUNT', count)
+    console.log(response)
+    // [ [ '1687734539621-0', [ 'album', '{"name":"Here is a sixth one"}' ] ] ]
+    const recent10 = response.map((a) => JSON.parse(a[1][1]))
     return recent10
   }
 
