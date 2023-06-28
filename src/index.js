@@ -44,6 +44,13 @@ class Album {
    * Create an instance of Album.
    * @summary Create an instance of Album.
    * @param { Object } config - An object literal contain configuration properties.
+   * @param { string } config.rootDir - A string path for the root directory for albums.
+   * @param { string } config.albumId - A string of the unique album id.
+   * @param { string } config.albumUrl - Path portion of public url for the album.
+   * @param { string } config.albumName - The name of the album.
+   * @param { string } config.albumOwer - The name of the album owner.
+   * @param { Object } config.redis - An instance of a redis connection.
+   * @param { Object } config.mongo - An instance of a mongoDB connection.
    * @return { Album }
    */
   constructor(config = {}) {
@@ -76,10 +83,10 @@ class Album {
   }
 
   async #checkRootDirExists() {
-    const log = _log.extend('checkRootDirExists')
+    // const log = _log.extend('checkRootDirExists')
     const info = _info.extend('checkRootDirExists')
     const warn = _warn.extend('checkRootDirExists')
-    const error = _error.extend('checkRootDirExists')
+    // const error = _error.extend('checkRootDirExists')
     let dir
     let stats
     try {

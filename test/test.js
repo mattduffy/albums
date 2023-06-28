@@ -22,14 +22,17 @@ const log = _log.extend('test')
 const info = _info.extend('test')
 const warn = _warn.extend('test') // eslint-disable-line no-unused-vars
 const error = _error.extend('test') // eslint-disable-line no-unused-vars
-const rootDir = path.resolve('tmp/albums')
-info(rootDir)
-const uploads = process.env.uploadsDir ?? 'tmp/uploads'
+let rootDir = process.env.ROOTDIR ?? 'tmp/albums'
+rootDir = path.resolve(rootDir)
+info('rootDir: ', rootDir)
+let uploads = process.env.UPLOADSDIR ?? 'tmp/uploads'
+uploads = path.resolve(uploads)
 const archive = `${uploads}/marquetry.tgz`
-info(archive)
+info('archive: ', archive)
 
 describe('First test for albums package', async () => {
   before(async () => {
+    info('cwd: ', process.cwd())
   })
 
   after(async () => {
@@ -47,8 +50,8 @@ describe('First test for albums package', async () => {
   })
 
   it('should have a rootDir path assigned', async () => {
-    assert.notStrictEqual(album.rootDir, undefined)
     log(path.resolve(album.rootDir))
+    assert.notStrictEqual(album.rootDir, undefined)
   })
 
   it('should have a rootDir that actually exists', async () => {
