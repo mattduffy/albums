@@ -122,11 +122,10 @@ class Album {
   /**
    * Resolve the given album directory name into a full file system path.
    * @summary Resolve the given album directory name into a full file system path.
-   * @async
    * @throws { Error } If directory can't be accessed.
    * @return { undefined }
    */
-  async #resolveAlbumDirPath() {
+  #resolveAlbumDirPath() {
     const log = _log.extend('resolveAlbumDirPath')
     const error = _error.extend('resolveAlbumDirPath')
     let fullPath
@@ -144,10 +143,9 @@ class Album {
     } else {
       fullPath = path.resolve(this.#albumDir)
     }
-    error(this.#rootDir)
-    error(fullPath)
-    error(this.#albumDir)
-    error(this.#rootDir, '/', p.name)
+    log('composed path: ', this.#rootDir, '/', p.name)
+    log('fullPath:      ', fullPath)
+    log(`this.#albumDir: ${this.#albumDir}`)
     if (fullPath !== `${this.#rootDir}/${p.name}`) {
       // ../rootDir/albumDir
       throw new Error(`Album dir ${this.#albumDir} is not in ${this.#rootDir}`)
@@ -159,20 +157,27 @@ class Album {
    * Check if the given path to rootDir is valid.
    * @summary Check if the given path to rootDir is valid.
    * @async
+   * @param { string } rootPath - A string file system path for the root album directory.
    * @return { boolean } - True if directory exists, false otherwise.
    */
-  async #checkRootDirExists() {
+  async #checkRootDirExists(rootPath = null) {
     // const log = _log.extend('checkRootDirExists')
     const info = _info.extend('checkRootDirExists')
     const warn = _warn.extend('checkRootDirExists')
     // const error = _error.extend('checkRootDirExists')
     let stats
-    if (this.#rootDir !== null) {
+    let rootPathTest
+    if (rootPath !== null) {
+      rootPathTest = rootPath
+    } else {
+      rootPathTest = this.#rootDir
+    }
+    if (rootPathTest !== null) {
       try {
-        stats = await fs.stat(this.#rootDir)
+        stats = await fs.stat(rootPathTest)
       } catch (e) {
         warn(e)
-        warn(`Expected album root dir is missing: ${this.#rootDir}`)
+        warn(`Expected album root dir is missing: ${rootPathTest}`)
         // throw new Error(e)
         return false
       }
@@ -243,28 +248,37 @@ class Album {
     this.#mongo = client
   }
 
+  set rootDir(noop) {
+    this.#error('No-op')
+  }
+
   get rootDir() {
     return this.#rootDir
   }
 
   async setRootDir(dirPath) {
+    const log = this.#log.extend('setRootDir')
+    const error = this.#error.extend('setRootDir')
+    log('         dirPath: ', dirPath)
+    log('resolved dirPath: ', path.resolve(dirPath))
     let root
     const exists = await this.#checkRootDirExists(dirPath)
-    this.#log(`root dir exists: ${exists}`)
+    log(`root dir exists: ${exists}`)
     if (exists) {
-      this.#log('ok')
+      log(`${dirPath} exists and setting as new rootDir`)
+      this.#rootDir = dirPath
     } else {
-      this.#log('no root dir yet.')
+      log('no root dir yet.')
       root = await this.#makeRootDir(dirPath)
       if (!root) {
-        this.#error('mkdir failed')
+        error('mkdir failed')
         throw new Error(`Failed to make album root dir: ${dirPath}`)
       } else {
         this.#rootDir = root
-        this.#log(this.#rootDir)
+        log(this.#rootDir)
       }
     }
-    return this
+    return this.init()
   }
 
   get id() {
@@ -275,12 +289,13 @@ class Album {
     this.#albumId = id
   }
 
-  get dir() {
+  get albumDir() {
     return this.#albumDir
   }
 
-  set dir(albumDirPath) {
+  set albumDir(albumDirPath) {
     this.#albumDir = albumDirPath
+    this.#resolveAlbumDirPath()
   }
 
   get url() {

@@ -102,7 +102,7 @@ describe('First test for albums package', async () => {
     info(`Archive ${archive} has ${fileCount} images.`)
     extracted = await unpacker.unpack(rootDir, {}, { rename: true, newName: '00001' })
     info(extracted)
-    assert.ok(extraced.unpacked, 'Unpack operation failed.')
+    assert.ok(extracted.unpacked, 'Unpack operation failed.')
   })
 
   it('should have a rootDir that actually exists', async () => {
@@ -110,6 +110,7 @@ describe('First test for albums package', async () => {
     exiftool = await exiftool.init(extracted.finalPath)
     const metadata = await exiftool.getMetadata()
     info(metadata)
+    album.albumDir = extracted.finalPath
     album = await album.init()
     const stats = await fs.stat(path.resolve(album.rootDir))
     log(`stats.isDirectory: ${stats.isDirectory()}`)
