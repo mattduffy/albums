@@ -31,7 +31,8 @@
     "ioredis": "5.3.2",
     "mongodb": "5.6.0",
     "redis-om": "0.3.6",
-    "@mattduffy/unpacker": "../unpacker"
+    "@mattduffy/unpacker": "../unpacker",
+    "@mattduffy/exiftool": "../exiftool"
   },
   "dependencies": {
     "@mattduffy/exiftool": "../exiftool",

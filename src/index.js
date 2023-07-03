@@ -34,6 +34,8 @@ class Album {
 
   #albumId
 
+  #albumDir
+
   #albumUrl
 
   #albumName
@@ -46,6 +48,7 @@ class Album {
    * @param { Object } config - An object literal contain configuration properties.
    * @param { string } config.rootDir - A string path for the root directory for albums.
    * @param { string } config.albumId - A string of the unique album id.
+   * @param { string } config.albumDir - A string of the album file system path.
    * @param { string } config.albumUrl - Path portion of public url for the album.
    * @param { string } config.albumName - The name of the album.
    * @param { string } config.albumOwer - The name of the album owner.
@@ -54,20 +57,42 @@ class Album {
    * @return { Album }
    */
   constructor(config = {}) {
+    // private properties
     this.#log = _log.extend('constructor')
     this.#error = _error.extend('constructor')
     this.#redis = config?.redis ?? null
     this.#mongo = config?.mongo ?? config?.db ?? null
-    this.#rootDir = config?.rootDir ?? process.env.ALBUMS_ROOT_DIR ?? './albums'
+    // this.#rootDir = config?.rootDir ?? process.env.ALBUMS_ROOT_DIR ?? './albums'
+    this.#rootDir = config?.rootDir ?? process.env.ALBUMS_ROOT_DIR ?? null
+    this.#rootDir = (this.#rootDir) ? path.resolve(this.#rootDir) : null
     this.#albumId = config?.albumId ?? config.Id ?? null
+    this.#albumDir = config?.albumDir ?? config.dir ?? null
     this.#albumUrl = config?.albumUrl ?? config.url ?? null
     this.#albumName = config?.albumName ?? config.name ?? null
     this.#albumOwner = config?.albumOwner ?? config.owner ?? null
+    // pseudo-protected properties
+    this._directoryIterator = null
   }
 
+  /**
+   * Run all the async operations to initialize the album.
+   * @summary Run all the async operations to initialize the album.
+   * @async
+   * @throws Error
+   * @return { Album } Return a fully iniitialized album instance.
+   */
   async init() {
     const log = _log.extend('init')
     const error = _error.extend('init')
+    if (this.#rootDir === null && this.#albumDir !== null) {
+      log(this.#rootDir, '/', this.#albumDir)
+      const parsedAlbumPath = path.parse(this.#albumDir)
+      if (parsedAlbumPath.root === '') {
+        throw new Error('No rootDir given and albumDir is incomplete.')
+      } else {
+        log('parsedAlbumPath: ', parsedAlbumPath)
+      }
+    }
     let dir
     try {
       dir = await this.#checkRootDirExists()
@@ -79,36 +104,105 @@ class Album {
       error(e)
       throw new Error(e)
     }
+    try {
+      await this.#resolveAlbumDirPath()
+    } catch (e) {
+      error('Problem resolving album directory path.')
+      throw new Error(e)
+    }
+    try {
+      this._directoryIterator = await this.#dir()
+    } catch (e) {
+      error(`Failed to set the directory iterator on ${this.#albumDir}`)
+      throw new Error(e)
+    }
     return this
   }
 
+  /**
+   * Resolve the given album directory name into a full file system path.
+   * @summary Resolve the given album directory name into a full file system path.
+   * @async
+   * @throws { Error } If directory can't be accessed.
+   * @return { undefined }
+   */
+  async #resolveAlbumDirPath() {
+    const log = _log.extend('resolveAlbumDirPath')
+    const error = _error.extend('resolveAlbumDirPath')
+    let fullPath
+    log(`rootDir: ${this.#rootDir}`)
+    log(`albumDir: ${this.#albumDir}`)
+    const p = path.parse(this.#albumDir)
+    log(p)
+    if (p.root === '' && this.#rootDir === '') {
+      error(`${this.#rootDir}/${this.#albumDir}`)
+      throw new Error('No valid path to album given.')
+    } else if (p.dir === '') {
+      // just the album directory name
+      fullPath = path.resolve(this.#rootDir, this.#albumDir)
+      log(`Full album path: ${fullPath}`)
+    } else {
+      fullPath = path.resolve(this.#albumDir)
+    }
+    error(this.#rootDir)
+    error(fullPath)
+    error(this.#albumDir)
+    error(this.#rootDir, '/', p.name)
+    if (fullPath !== `${this.#rootDir}/${p.name}`) {
+      // ../rootDir/albumDir
+      throw new Error(`Album dir ${this.#albumDir} is not in ${this.#rootDir}`)
+    }
+    this.#albumDir = fullPath
+  }
+
+  /**
+   * Check if the given path to rootDir is valid.
+   * @summary Check if the given path to rootDir is valid.
+   * @async
+   * @return { boolean } - True if directory exists, false otherwise.
+   */
   async #checkRootDirExists() {
     // const log = _log.extend('checkRootDirExists')
     const info = _info.extend('checkRootDirExists')
     const warn = _warn.extend('checkRootDirExists')
     // const error = _error.extend('checkRootDirExists')
-    let dir
     let stats
-    try {
-      dir = path.resolve(this.#rootDir)
-      stats = await fs.stat(dir)
-    } catch (e) {
-      warn(e)
-      warn(`Expected album root dir is missing: ${dir}`)
-      // throw new Error(e)
-      return false
+    if (this.#rootDir !== null) {
+      try {
+        stats = await fs.stat(this.#rootDir)
+      } catch (e) {
+        warn(e)
+        warn(`Expected album root dir is missing: ${this.#rootDir}`)
+        // throw new Error(e)
+        return false
+      }
+      info('rootDir is directory: ', stats.isDirectory())
+      return stats.isDirectory()
     }
-    info(stats.isDirectory())
-    return stats.isDirectory()
+    const p = path.parse(this.#albumDir)
+    if (p.dir !== '') {
+      info('p.dir: ', p.dir)
+      this.#rootDir = p.dir
+      return true
+    }
+    return false
   }
 
+  /**
+   * Make the album root directory if it doesn't already exist.
+   * @summary Make the album root directory if it doesn't already exist.
+   * @async
+   * @param { string } dirPath - A string with the file system path to root dir location.
+   * @throws Error If fails to make new directory at rootDir path.
+   * @return { string } The path of the newly created rootDir.
+   */
   async #makeRootDir(dirPath) {
     const log = _log.extend('makeRootDir')
     const info = _info.extend('makeRootDir')
     const error = _error.extend('makeRootDir')
     let dir
     try {
-      info(`rootDir: ${path.resolve(this.#rootDir)} ?= dirPath: ${path.resolve(dirPath)}`)
+      info(`rootDir: ${this.#rootDir} ?= dirPath: ${path.resolve(dirPath)}`)
       dir = await fs.mkdir(path.resolve(dirPath), { recursive: true })
       log(dir)
       if (!dir) {
@@ -119,6 +213,26 @@ class Album {
       throw new Error(e)
     }
     return dir
+  }
+
+  /**
+   * Provide an async iterator of the album directory.
+   * @summary Provide an async iterator of the album directory.
+   * @async
+   * @throws Error If album directory doesn't exist.
+   * @return { fs.Dirent } AsyncIterator of the fs.Dirent
+   */
+  async #dir() {
+    const log = _log.extend('dir')
+    const error = _error.extend('dir')
+    try {
+      log(`Opening album dir: ${this.#albumDir}`)
+      const dirIt = await fs.opendir(this.#albumDir, { encoding: 'utf8', bufferSize: 32, recursive: true })
+      return dirIt
+    } catch (e) {
+      error(`Error: ${this.#albumDir}`)
+      throw new Error(e)
+    }
   }
 
   set redisClient(client) {
@@ -159,6 +273,14 @@ class Album {
 
   set id(id) {
     this.#albumId = id
+  }
+
+  get dir() {
+    return this.#albumDir
+  }
+
+  set dir(albumDirPath) {
+    this.#albumDir = albumDirPath
   }
 
   get url() {
