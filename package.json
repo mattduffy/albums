@@ -30,12 +30,11 @@
     "eslint-plugin-import": "2.26.0",
     "ioredis": "5.3.2",
     "mongodb": "5.6.0",
-    "redis-om": "0.3.6",
-    "@mattduffy/unpacker": "../unpacker",
-    "@mattduffy/exiftool": "../exiftool"
+    "redis-om": "0.3.6"
   },
   "dependencies": {
     "@mattduffy/exiftool": "../exiftool",
+    "@mattduffy/unpacker": "../unpacker",
     "debug": "4.3.4"
   },
   "keywords": []
