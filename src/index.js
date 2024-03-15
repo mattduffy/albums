@@ -42,6 +42,8 @@ class Album {
 
   #albumOwner
 
+  #albumJson
+
   /**
    * Create an instance of Album.
    * @summary Create an instance of Album.
@@ -240,6 +242,23 @@ class Album {
     }
   }
 
+  /*
+   * Build the JSON object for the album.
+   * @summary Build the JSON object for the album.
+   * @author Matthew Duffy <mattduffy@gmail.com>
+   * @async
+   * @throws Error
+   * @return { Object }
+   */
+  async #buildAlbum() {
+    return {
+      id: this.#albumId,
+      name: this.#albumName,
+      url: this.#albumUrl,
+      images: [],
+    }
+  }
+
   set redisClient(client) {
     this.#redis = client
   }
@@ -320,6 +339,22 @@ class Album {
 
   set owner(owner) {
     this.#albumOwner = owner
+  }
+
+  async getJson() {
+    if (this.#albumJson) {
+      return this.#albumJson
+    }
+    return this.#buildAlbum()
+  }
+
+  get json() {
+    this.#error('no-op: get json()')
+    return undefined
+  }
+
+  set json(j) {
+    this.#error('no-op: set json()')
   }
 }
 
