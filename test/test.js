@@ -1,3 +1,5 @@
+import * as Dotenv from 'dotenv'
+import path from 'node:path'
 import {
   after,
   before,
@@ -5,7 +7,6 @@ import {
   it,
 } from 'node:test'
 import assert from 'node:assert/strict'
-import path from 'node:path'
 import fs from 'node:fs/promises'
 import { Unpacker } from '@mattduffy/unpacker' // eslint-disable-line import/no-unresolved
 import { Exiftool } from '@mattduffy/exiftool' // eslint-disable-line import/no-unresolved
@@ -17,20 +18,33 @@ import {
   _error,
 } from '../src/utils/debug.js'
 
+const testEnv = {}
+const env = path.resolve('.', 'test/test.env')
+console.log(`dotenv config file: ${env}`)
+Dotenv.config({
+  path: env,
+  processEnv: testEnv,
+  debug: true,
+  override: true,
+})
 const log = _log.extend('test')
 const info = _info.extend('test')
 const warn = _warn.extend('test') // eslint-disable-line no-unused-vars
 const error = _error.extend('test') // eslint-disable-line no-unused-vars
-let rootDir = process.env.ROOTDIR ?? 'tmp/albums'
-rootDir = path.resolve(rootDir)
-let uploads = process.env.UPLOADSDIR ?? 'tmp/uploads'
-uploads = path.resolve(uploads)
+// let rootDir = path.resolve(testEnv.ROOTDIR ?? 'tmp/albums')
+log(testEnv)
+const rootDir = path.resolve(testEnv.ROOTDIR)
+// rootDir = path.resolve(rootDir)
+// let uploads = path.resolve(testEnv.UPLOADSDIR ?? 'tmp/uploads')
+const uploads = path.resolve(testEnv.UPLOADSDIR)
+// uploads = path.resolve(uploads)
 const archive = `${uploads}/marquetry.tgz`
 let redis
 let mongo
 
 describe('First test for albums package', async () => {
   before(async () => {
+    // info(`test env file: ${env}`)
     info('cwd: ', process.cwd())
     info(`rootDir: ${rootDir}`)
     info(`uploads: ${uploads}`)
@@ -116,6 +130,4 @@ describe('First test for albums package', async () => {
     log(`stats.isDirectory: ${stats.isDirectory()}`)
     assert.strictEqual(rootDir, album.rootDir)
   })
-
-
 })

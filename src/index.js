@@ -48,7 +48,7 @@ class Album {
    * Create an instance of Album.
    * @summary Create an instance of Album.
    * @param { Object } config - An object literal contain configuration properties.
-   * @param { string } config.rootDir - A string path for the root directory for albums.
+   * @param { string } config.rootDir - A string path for the root directory for all albums.
    * @param { string } config.albumId - A string of the unique album id.
    * @param { string } config.albumDir - A string of the album file system path.
    * @param { string } config.albumUrl - Path portion of public url for the album.
