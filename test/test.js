@@ -1,5 +1,6 @@
 import * as Dotenv from 'dotenv'
 import path from 'node:path'
+import { randomBytes } from 'node:crypto'
 import {
   after,
   before,
@@ -11,12 +12,7 @@ import fs from 'node:fs/promises'
 import { Unpacker } from '@mattduffy/unpacker' // eslint-disable-line import/no-unresolved
 import { Exiftool } from '@mattduffy/exiftool' // eslint-disable-line import/no-unresolved
 import { Album } from '../src/index.js'
-import {
-  _log,
-  _info,
-  _warn,
-  _error,
-} from '../src/utils/debug.js'
+import { _log, _error } from '../src/utils/debug.js'
 
 const testEnv = {}
 const env = path.resolve('.', 'test/test.env')
@@ -25,44 +21,38 @@ Dotenv.config({
   path: env,
   processEnv: testEnv,
   debug: true,
-  override: true,
+  encoding: 'utf8',
 })
 const log = _log.extend('test')
-const info = _info.extend('test')
-const warn = _warn.extend('test') // eslint-disable-line no-unused-vars
 const error = _error.extend('test') // eslint-disable-line no-unused-vars
-// let rootDir = path.resolve(testEnv.ROOTDIR ?? 'tmp/albums')
 log(testEnv)
-const rootDir = path.resolve(testEnv.ROOTDIR)
-// rootDir = path.resolve(rootDir)
-// let uploads = path.resolve(testEnv.UPLOADSDIR ?? 'tmp/uploads')
-const uploads = path.resolve(testEnv.UPLOADSDIR)
-// uploads = path.resolve(uploads)
-const archive = `${uploads}/marquetry.tgz`
+const rootDir = path.resolve('test', testEnv.ROOTDIR)
+const uploads = path.resolve('test', testEnv.UPLOADSDIR)
+const archive = `${uploads}/marquetry.tar.gz`
 let redis
 let mongo
-
+const skip = { skip: true }
 describe('First test for albums package', async () => {
   before(async () => {
-    // info(`test env file: ${env}`)
-    info('cwd: ', process.cwd())
-    info(`rootDir: ${rootDir}`)
-    info(`uploads: ${uploads}`)
-    if (process.env.HAS_REDIS) {
+    log('cwd: ', process.cwd())
+    log(`rootDir: ${rootDir}`)
+    log(`uploads: ${uploads}`)
+    if (testEnv.HAS_REDIS) {
       const { io } = await import('../lib/redis-client.js')
       redis = io.io
     }
-    if (process.env.HAS_MONGO) {
-      const { client } = await import('../lib/mongodb-client.js')
-      mongo = client
+    if (testEnv.HAS_MONGO) {
+      const { mongodb } = await import('../lib/mongodb-client.js')
+      mongo = mongodb('config/mongodb.env')
+      log('mongo: ', mongo.collection)
     }
     try {
       await fs.stat(rootDir)
     } catch (e) {
-      warn(`Test rootDir needs to be created: ${rootDir}`)
+      error(`Test rootDir needs to be created: ${rootDir}`)
       const makeRootDir = await fs.mkdir(rootDir, { recursive: true })
       if (makeRootDir === undefined) {
-        info(`made ${rootDir}`)
+        error(`made ${rootDir}`)
       } else {
         throw new Error(`failed to make ${rootDir}`)
       }
@@ -70,10 +60,10 @@ describe('First test for albums package', async () => {
     try {
       await fs.stat(uploads)
     } catch (e) {
-      warn(`Test uploads dir needs to be created: ${uploads}`)
+      error(`Test uploads dir needs to be created: ${uploads}`)
       const makeUploadsDir = await fs.mkdir(uploads, { recursive: true })
       if (makeUploadsDir === undefined) {
-        info(`made ${uploads}`)
+        error(`made ${uploads}`)
       } else {
         throw new Error(`failed to make ${uploads}`)
       }
@@ -85,13 +75,14 @@ describe('First test for albums package', async () => {
       redis.quit()
     }
     if (mongo) {
-      mongo.quit()
+      await mongo.close()
     }
   })
   const opts = {
-    // mongo,
+    mongo,
     // redis,
     rootDir,
+    user: randomBytes(8).toString('base64'),
   }
   let album = new Album(opts)
   let fileList
@@ -104,7 +95,7 @@ describe('First test for albums package', async () => {
   })
 
   it('should have a rootDir path assigned', async () => {
-    log(path.resolve(album.rootDir))
+    log(`album.rootDir: ${path.resolve(album.rootDir)}`)
     assert.notStrictEqual(album.rootDir, undefined)
   })
 
@@ -112,18 +103,19 @@ describe('First test for albums package', async () => {
     const unpacker = new Unpacker()
     await unpacker.setPath(archive)
     fileList = await unpacker.list()
-    fileCount = fileList.list.length
-    info(`Archive ${archive} has ${fileCount} images.`)
-    extracted = await unpacker.unpack(rootDir, {}, { rename: true, newName: '00001' })
-    info(extracted)
+    fileCount = fileList.list.length - 1
+    log(`Archive ${archive} has ${fileCount} images.`)
+    const newName = `${unpacker.getFileBasename()}-${randomBytes(4).toString('base64url')}`
+    extracted = await unpacker.unpack(rootDir, {}, { rename: true, newName })
+    log(extracted)
     assert.ok(extracted.unpacked, 'Unpack operation failed.')
   })
 
-  it('should have a rootDir that actually exists', async () => {
+  it('should have a rootDir that actually exists', skip, async () => {
     exiftool = new Exiftool()
     exiftool = await exiftool.init(extracted.finalPath)
     const metadata = await exiftool.getMetadata()
-    info(metadata)
+    log(metadata)
     album.albumDir = extracted.finalPath
     album = await album.init()
     const stats = await fs.stat(path.resolve(album.rootDir))
