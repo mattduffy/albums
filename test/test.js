@@ -29,8 +29,9 @@ log(testEnv)
 const rootDir = path.resolve('test', testEnv.ROOTDIR)
 const uploads = path.resolve('test', testEnv.UPLOADSDIR)
 const archive = `${uploads}/marquetry.tar.gz`
-let redis
-let mongo
+let ioredis
+let collection
+let close
 const skip = { skip: true }
 describe('First test for albums package', async () => {
   before(async () => {
@@ -38,13 +39,15 @@ describe('First test for albums package', async () => {
     log(`rootDir: ${rootDir}`)
     log(`uploads: ${uploads}`)
     if (testEnv.HAS_REDIS) {
-      const { io } = await import('../lib/redis-client.js')
-      redis = io.io
+      const { redisConn } = await import('../lib/redis-client.js')
+      ioredis = await redisConn('config/redis.env')
     }
     if (testEnv.HAS_MONGO) {
       const { mongodb } = await import('../lib/mongodb-client.js')
-      mongo = mongodb('config/mongodb.env')
-      log('mongo: ', mongo.collection)
+      // { collection, close } = await mongodb('config/mongodb.env')
+      const tmp = await mongodb('config/mongodb.env')
+      collection = tmp.collection
+      close = tmp.close
     }
     try {
       await fs.stat(rootDir)
@@ -71,18 +74,18 @@ describe('First test for albums package', async () => {
   })
 
   after(async () => {
-    if (redis) {
-      redis.quit()
+    if (ioredis) {
+      ioredis.quit()
     }
-    if (mongo) {
-      await mongo.close()
+    if (collection) {
+      await close()
     }
   })
   const opts = {
-    mongo,
-    // redis,
+    collection,
+    // ioredis,
     rootDir,
-    user: randomBytes(8).toString('base64'),
+    user: randomBytes(8).toString('base64url'),
   }
   let album = new Album(opts)
   let fileList
