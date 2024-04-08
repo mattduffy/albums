@@ -23,6 +23,11 @@ Dotenv.config({
   debug: true,
   encoding: 'utf8',
 })
+if (!process.env.DB_NAME) {
+  testEnv.HAS_MONGO = false
+} else {
+  testEnv.DB_NAME = process.env.DB_NAME
+}
 const log = _log.extend('test')
 const error = _error.extend('test') // eslint-disable-line no-unused-vars
 log(testEnv)
@@ -30,8 +35,9 @@ const rootDir = path.resolve('test', testEnv.ROOTDIR)
 const uploads = path.resolve('test', testEnv.UPLOADSDIR)
 const archive = `${uploads}/marquetry.tar.gz`
 let ioredis
+let db
 let collection
-let close
+let prefix
 const skip = { skip: true }
 describe('First test for albums package', async () => {
   before(async () => {
@@ -41,13 +47,12 @@ describe('First test for albums package', async () => {
     if (testEnv.HAS_REDIS) {
       const { redisConn } = await import('../lib/redis-client.js')
       ioredis = await redisConn('config/redis.env')
+      prefix = testEnv.REDIS_PREFIX
     }
     if (testEnv.HAS_MONGO) {
       const { mongodb } = await import('../lib/mongodb-client.js')
-      // { collection, close } = await mongodb('config/mongodb.env')
-      const tmp = await mongodb('config/mongodb.env')
-      collection = tmp.collection
-      close = tmp.close
+      db = await mongodb('config/mongodb.env')
+      collection = db.db(testEnv.DB_NAME).collection(testEnv.DB_COLLECTION)
     }
     try {
       await fs.stat(rootDir)
@@ -75,15 +80,25 @@ describe('First test for albums package', async () => {
 
   after(async () => {
     if (ioredis) {
+      const scan = ioredis.scanStream({ match: prefix, count: 2500 })
+      scan.on('data', (keys) => {
+        for (let i = 0; i < keys.length; i += 1) {
+          log(keys[i])
+        }
+      })
+      scan.on('end', () => {
+        log(`All test keys with prefix ${prefix} have been scanned.`)
+      })
+      prefix = undefined
       ioredis.quit()
     }
-    if (collection) {
-      await close()
+    if (db) {
+      await db.close()
     }
   })
   const opts = {
     collection,
-    // ioredis,
+    ioredis,
     rootDir,
     user: randomBytes(8).toString('base64url'),
   }
