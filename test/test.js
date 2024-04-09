@@ -123,13 +123,14 @@ describe('First test for albums package', async () => {
     fileList = await unpacker.list()
     fileCount = fileList.list.length - 1
     log(`Archive ${archive} has ${fileCount} images.`)
-    const newName = `${unpacker.getFileBasename()}-${randomBytes(4).toString('base64url')}`
-    extracted = await unpacker.unpack(rootDir, {}, { rename: true, newName })
+    const bytes = randomBytes(4).toString('base64url')
+    const newName = `${unpacker.getFileBasename()}-${bytes}`
+    extracted = await unpacker.unpack(path.join(rootDir, bytes), null, { rename: true, newName })
     log(extracted)
     assert.ok(extracted.unpacked, 'Unpack operation failed.')
   })
 
-  it('should have a rootDir that actually exists', skip, async () => {
+  it('should have a rootDir that actually exists', async () => {
     exiftool = new Exiftool()
     exiftool = await exiftool.init(extracted.finalPath)
     const metadata = await exiftool.getMetadata()

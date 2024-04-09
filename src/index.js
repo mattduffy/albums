@@ -130,29 +130,18 @@ class Album {
   #resolveAlbumDirPath() {
     const log = _log.extend('resolveAlbumDirPath')
     const error = _error.extend('resolveAlbumDirPath')
-    let fullPath
     log(`rootDir: ${this.#rootDir}`)
     log(`albumDir: ${this.#albumDir}`)
     const p = path.parse(this.#albumDir)
     log(p)
-    if (p.root === '' && this.#rootDir === '') {
-      error(`${this.#rootDir}/${this.#albumDir}`)
-      throw new Error('No valid path to album given.')
-    } else if (p.dir === '') {
-      // just the album directory name
-      fullPath = path.resolve(this.#rootDir, this.#albumDir)
-      log(`Full album path: ${fullPath}`)
-    } else {
-      fullPath = path.resolve(this.#albumDir)
-    }
-    log('composed path: ', this.#rootDir, '/', p.name)
-    log('fullPath:      ', fullPath)
-    log(`this.#albumDir: ${this.#albumDir}`)
-    if (fullPath !== `${this.#rootDir}/${p.name}`) {
-      // ../rootDir/albumDir
+    const pathDiff = path.relative(this.#rootDir, this.#albumDir)
+    if (`${this.#rootDir}/${pathDiff}` !== this.#albumDir) {
+      error(`rootDir:         ${this.#rootDir}`)
+      error(`albumDir:        ${this.#albumDir}`)
+      error(`path difference: ${pathDiff}`)
       throw new Error(`Album dir ${this.#albumDir} is not in ${this.#rootDir}`)
     }
-    this.#albumDir = fullPath
+    this.#albumDir = path.resolve(this.#albumDir)
   }
 
   /**
