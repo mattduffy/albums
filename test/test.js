@@ -130,13 +130,25 @@ describe('First test for albums package', async () => {
     assert.ok(extracted.unpacked, 'Unpack operation failed.')
   })
 
+  it('should successfully iterate over the album directory.', async () => {
+    let count = 0
+    let image
+    album = await album.init(extracted.finalPath)
+    /* eslint-disable-next-line */
+    while ((image = await album.next()) !== null) {
+      count += 1
+      log(`found image: ${image.name}`)
+    }
+    assert.strictEqual(count, fileCount)
+  })
+
   it('should have a rootDir that actually exists', async () => {
     exiftool = new Exiftool()
     exiftool = await exiftool.init(extracted.finalPath)
-    const metadata = await exiftool.getMetadata()
+    const metadata = await exiftool.getMetadata(null, null)
     log(metadata)
-    album.albumDir = extracted.finalPath
-    album = await album.init()
+    // album.albumDir = extracted.finalPath
+    album = await album.init(extracted.finalPath)
     const stats = await fs.stat(path.resolve(album.rootDir))
     log(`stats.isDirectory: ${stats.isDirectory()}`)
     assert.strictEqual(rootDir, album.rootDir)

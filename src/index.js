@@ -44,6 +44,8 @@ class Album {
 
   #albumJson
 
+  #directoryIterator
+
   /**
    * Create an instance of Album.
    * @summary Create an instance of Album.
@@ -73,7 +75,7 @@ class Album {
     this.#albumName = config?.albumName ?? config.name ?? null
     this.#albumOwner = config?.albumOwner ?? config.owner ?? null
     // pseudo-protected properties
-    this._directoryIterator = null
+    // this._directoryIterator = null
   }
 
   /**
@@ -81,11 +83,15 @@ class Album {
    * @summary Run all the async operations to initialize the album.
    * @async
    * @throws Error
+   * @param { String } dirPath - A string path to the album directory.
    * @return { Album } Return a fully iniitialized album instance.
    */
-  async init() {
+  async init(dirPath = null) {
     const log = _log.extend('init')
     const error = _error.extend('init')
+    if (path !== null || path !== undefined) {
+      this.#albumDir = path.resolve(dirPath)
+    }
     if (this.#rootDir === null && this.#albumDir !== null) {
       log(this.#rootDir, '/', this.#albumDir)
       const parsedAlbumPath = path.parse(this.#albumDir)
@@ -113,7 +119,7 @@ class Album {
       throw new Error(e)
     }
     try {
-      this._directoryIterator = await this.#dir()
+      this.#directoryIterator = await this.#dir()
     } catch (e) {
       error(`Failed to set the directory iterator on ${this.#albumDir}`)
       throw new Error(e)
@@ -229,6 +235,19 @@ class Album {
       error(`Error: ${this.#albumDir}`)
       throw new Error(e)
     }
+  }
+
+  /**
+   * Provide a public interface to an iteratable directory read handle.
+   * @summary Provide a public interface to an interable directory read handle.
+   * @async
+   * @retuun { fs.Dir|null} - AsyncIterator of fs.Dir instance.
+   */
+  async next() {
+    if (this.#directoryIterator) {
+      return this.#directoryIterator.read()
+    }
+    return null
   }
 
   /*
