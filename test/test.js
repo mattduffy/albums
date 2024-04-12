@@ -28,7 +28,7 @@ if (!process.env.DB_NAME) {
 } else {
   testEnv.DB_NAME = process.env.DB_NAME
 }
-const log = _log.extend('test')
+const log = _log.extend('Albums:test')
 const error = _error.extend('test') // eslint-disable-line no-unused-vars
 log(testEnv)
 const rootDir = path.resolve('test', testEnv.ROOTDIR)
@@ -123,11 +123,15 @@ describe('First test for albums package', async () => {
     fileList = await unpacker.list()
     fileCount = fileList.list.length - 1
     log(`Archive ${archive} has ${fileCount} images.`)
-    const bytes = randomBytes(4).toString('base64url')
-    const newName = `${unpacker.getFileBasename()}-${bytes}`
-    extracted = await unpacker.unpack(path.join(rootDir, bytes), null, { rename: true, newName })
+    const bytes = randomBytes(2).toString('base64url')
+    const userName = `user-${bytes}`
+    extracted = await unpacker.unpack(path.join(rootDir, userName))
     log(extracted)
     assert.ok(extracted.unpacked, 'Unpack operation failed.')
+
+    const newName = `${unpacker.getFileBasename()}-${bytes}`
+    const secondExtracted = await unpacker.unpack(path.join(rootDir, userName), null, { rename: true, newName })
+    assert.ok(secondExtracted.unpacked, `Second unpack (and rename ${newName} operation failed.`)
   })
 
   it('should successfully iterate over the album directory.', async () => {
@@ -142,12 +146,19 @@ describe('First test for albums package', async () => {
     assert.strictEqual(count, fileCount)
   })
 
+  it('should be able to set the description for the album.', async () => {
+    const descriptionText = 'This is my first test album being created.  I don\'t know when this package will be finished and put into use.'
+    log(`album desciption: ${descriptionText}`)
+    album.description = descriptionText
+    log(album.description)
+    assert.ok(album.descriptin !== null)
+  })
+
   it('should have a rootDir that actually exists', async () => {
     exiftool = new Exiftool()
     exiftool = await exiftool.init(extracted.finalPath)
-    const metadata = await exiftool.getMetadata(null, null)
+    const metadata = await exiftool.getMetadata(null, null, '-MWG:all')
     log(metadata)
-    // album.albumDir = extracted.finalPath
     album = await album.init(extracted.finalPath)
     const stats = await fs.stat(path.resolve(album.rootDir))
     log(`stats.isDirectory: ${stats.isDirectory()}`)

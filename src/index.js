@@ -32,6 +32,8 @@ class Album {
 
   #rootDir
 
+  #images
+
   #albumId
 
   #albumDir
@@ -43,6 +45,8 @@ class Album {
   #albumOwner
 
   #albumJson
+
+  #albumDescription
 
   #directoryIterator
 
@@ -74,6 +78,7 @@ class Album {
     this.#albumUrl = config?.albumUrl ?? config.url ?? null
     this.#albumName = config?.albumName ?? config.name ?? null
     this.#albumOwner = config?.albumOwner ?? config.owner ?? null
+    this.#albumDescription = config?.albumDescription ?? config.description ?? null
     // pseudo-protected properties
     // this._directoryIterator = null
   }
@@ -120,6 +125,8 @@ class Album {
     }
     try {
       this.#directoryIterator = await this.#dir()
+      this.#images = await fs.readdir(this.#albumDir)
+      this.#albumJson = this.createAlbumJson()
     } catch (e) {
       error(`Failed to set the directory iterator on ${this.#albumDir}`)
       throw new Error(e)
@@ -258,12 +265,13 @@ class Album {
    * @throws Error
    * @return { Object }
    */
-  async #buildAlbum() {
+  async createAlbumJson() {
     return {
       id: this.#albumId,
       name: this.#albumName,
       url: this.#albumUrl,
-      images: [],
+      description: this.#albumDescription,
+      images: this.#images,
     }
   }
 
@@ -349,11 +357,19 @@ class Album {
     this.#albumOwner = owner
   }
 
+  set description(desc) {
+    this.#albumDescription = desc
+  }
+
+  get description() {
+    return this.#albumDescription
+  }
+
   async getJson() {
     if (this.#albumJson) {
       return this.#albumJson
     }
-    return this.#buildAlbum()
+    return this.createAlbumJson()
   }
 
   get json() {
