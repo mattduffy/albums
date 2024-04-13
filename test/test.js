@@ -35,10 +35,12 @@ const rootDir = path.resolve('test', testEnv.ROOTDIR)
 const uploads = path.resolve('test', testEnv.UPLOADSDIR)
 const archive = `${uploads}/marquetry.tar.gz`
 let ioredis
+let prefix
+let mongodb
+let ObjectId
 let db
 let collection
-let prefix
-const skip = { skip: true }
+// const skip = { skip: true }
 describe('First test for albums package', async () => {
   before(async () => {
     log('cwd: ', process.cwd())
@@ -50,9 +52,12 @@ describe('First test for albums package', async () => {
       prefix = testEnv.REDIS_PREFIX
     }
     if (testEnv.HAS_MONGO) {
-      const { mongodb } = await import('../lib/mongodb-client.js')
-      db = await mongodb('config/mongodb.env')
+      // { mongodb, ObjectId } = await import('../lib/mongodb-client.js');
+      const mongo = await import('../lib/mongodb-client.js')
+      log(mongodb)
+      db = await mongo.mongodb('config/mongodb.env')
       collection = db.db(testEnv.DB_NAME).collection(testEnv.DB_COLLECTION)
+      ObjectId = mongo.ObjectId
     }
     try {
       await fs.stat(rootDir)
@@ -96,47 +101,79 @@ describe('First test for albums package', async () => {
       await db.close()
     }
   })
-  const opts = {
-    collection,
-    ioredis,
-    rootDir,
-    user: randomBytes(8).toString('base64url'),
-  }
-  let album = new Album(opts)
+  // const opts = {
+  //   collection,
+  //   ioredis,
+  //   rootDir,
+  //   user: randomBytes(4).toString('base64url'),
+  // }
+  // let album = new Album(opts)
   let fileList
   let fileCount
   let extracted
   let exiftool
 
   it('should import and instantiate the Album class', () => {
+    const opts = {
+      collection,
+      ioredis,
+      rootDir,
+      albumOwner: randomBytes(4).toString('base64url'),
+    }
+    const album = new Album(opts)
     assert(album instanceof Album)
   })
 
   it('should have a rootDir path assigned', async () => {
+    const opts = {
+      collection,
+      ioredis,
+      rootDir,
+      albumOwner: `user-${randomBytes(4).toString('base64url')}`,
+    }
+    const album = new Album(opts)
     log(`album.rootDir: ${path.resolve(album.rootDir)}`)
     assert.notStrictEqual(album.rootDir, undefined)
   })
 
   it('should successfully unpack the given album archive file first.', async () => {
+    const opts = {
+      collection,
+      ioredis,
+      rootDir,
+      albumOwner: `user-${randomBytes(4).toString('base64url')}`,
+    }
+    let album = new Album(opts)
     const unpacker = new Unpacker()
     await unpacker.setPath(archive)
     fileList = await unpacker.list()
     fileCount = fileList.list.length - 1
     log(`Archive ${archive} has ${fileCount} images.`)
     const bytes = randomBytes(2).toString('base64url')
-    const userName = `user-${bytes}`
-    extracted = await unpacker.unpack(path.join(rootDir, userName))
+    // const userName = `user-${bytes}`
+    log(opts.albumOwner)
+    log(`unpack to ${rootDir}/${opts.albumOwner}`)
+    extracted = await unpacker.unpack(path.join(rootDir, opts.albumOwner))
     log(extracted)
+    album = await album.init(extracted.finalPath)
+    album.albumId = new ObjectId()
     assert.ok(extracted.unpacked, 'Unpack operation failed.')
 
     const newName = `${unpacker.getFileBasename()}-${bytes}`
-    const secondExtracted = await unpacker.unpack(path.join(rootDir, userName), null, { rename: true, newName })
+    const secondExtracted = await unpacker.unpack(path.join(rootDir, opts.albumOwner), null, { rename: true, newName })
     assert.ok(secondExtracted.unpacked, `Second unpack (and rename ${newName} operation failed.`)
   })
 
   it('should successfully iterate over the album directory.', async () => {
     let count = 0
     let image
+    const opts = {
+      collection,
+      ioredis,
+      rootDir,
+      albumOwner: `user-${randomBytes(4).toString('base64url')}`,
+    }
+    let album = new Album(opts)
     album = await album.init(extracted.finalPath)
     /* eslint-disable-next-line */
     while ((image = await album.next()) !== null) {
@@ -149,9 +186,17 @@ describe('First test for albums package', async () => {
   it('should be able to set the description for the album.', async () => {
     const descriptionText = 'This is my first test album being created.  I don\'t know when this package will be finished and put into use.'
     log(`album desciption: ${descriptionText}`)
+    const opts = {
+      collection,
+      ioredis,
+      rootDir,
+      albumOwner: `user-${randomBytes(4).toString('base64url')}`,
+    }
+    let album = new Album(opts)
+    album = await album.init(extracted.finalPath)
     album.description = descriptionText
     log(album.description)
-    assert.ok(album.descriptin !== null)
+    assert.ok(album.description !== null)
   })
 
   it('should have a rootDir that actually exists', async () => {
@@ -159,6 +204,13 @@ describe('First test for albums package', async () => {
     exiftool = await exiftool.init(extracted.finalPath)
     const metadata = await exiftool.getMetadata(null, null, '-MWG:all')
     log(metadata)
+    const opts = {
+      collection,
+      ioredis,
+      rootDir,
+      albumOwner: `user-${randomBytes(4).toString('base64url')}`,
+    }
+    let album = new Album(opts)
     album = await album.init(extracted.finalPath)
     const stats = await fs.stat(path.resolve(album.rootDir))
     log(`stats.isDirectory: ${stats.isDirectory()}`)
