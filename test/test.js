@@ -14,6 +14,11 @@ import { Exiftool } from '@mattduffy/exiftool' // eslint-disable-line import/no-
 import { Album } from '../src/index.js'
 import { _log, _error } from '../src/utils/debug.js'
 
+if (process.env.DB_NAME === undefined) {
+  console.log(`Missing db name in environment var process.env.DB_NAME: ${process.env.DB_NAME}`)
+  process.exit(1)
+}
+
 const testEnv = {}
 const env = path.resolve('.', 'test/test.env')
 console.log(`dotenv config file: ${env}`)
@@ -200,10 +205,10 @@ describe('First test for albums package', async () => {
   })
 
   it('should have a rootDir that actually exists', async () => {
-    exiftool = new Exiftool()
-    exiftool = await exiftool.init(extracted.finalPath)
-    const metadata = await exiftool.getMetadata(null, null, '-MWG:all')
-    log(metadata)
+    // exiftool = new Exiftool()
+    // exiftool = await exiftool.init(extracted.finalPath)
+    // const metadata = await exiftool.getMetadata(null, null, '-MWG:all')
+    // log(metadata)
     const opts = {
       collection,
       ioredis,
@@ -215,5 +220,21 @@ describe('First test for albums package', async () => {
     const stats = await fs.stat(path.resolve(album.rootDir))
     log(`stats.isDirectory: ${stats.isDirectory()}`)
     assert.strictEqual(rootDir, album.rootDir)
+  })
+
+  it('should correctly extract metadata from images in album dir.', async () => {
+    exiftool = new Exiftool()
+    exiftool = await exiftool.init(extracted.finalPath)
+    const metadata = await exiftool.getMetadata(null, null, '-MWG:all')
+    // log(metadata)
+    const opts = {
+      collection,
+      ioredis,
+      rootDir,
+      albumOwner: `user-${randomBytes(4).toString('base64url')}`,
+    }
+    let album = new Album(opts)
+    album = await album.init(extracted.finalPath)
+    assert.strictEqual(metadata[metadata.length - 1], album._numberOfImages)
   })
 })

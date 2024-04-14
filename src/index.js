@@ -6,6 +6,7 @@
 
 import path from 'node:path'
 import fs from 'node:fs/promises'
+import { Exiftool } from '@mattduffy/exiftool' // eslint-disable-line import/no-unresolved
 import {
   _log,
   _info,
@@ -25,6 +26,8 @@ class Album {
   #error
 
   #mongo
+
+  #collection
 
   #redis
 
@@ -62,6 +65,7 @@ class Album {
    * @param { string } config.albumOwer - The name of the album owner.
    * @param { Object } config.redis - An instance of a redis connection.
    * @param { Object } config.mongo - An instance of a mongoDB connection.
+   * @param { Object } config.collection - A refernce to a mongoDB collection.
    * @return { Album }
    */
   constructor(config = {}) {
@@ -70,7 +74,7 @@ class Album {
     this.#error = _error.extend('constructor')
     this.#redis = config?.redis ?? null
     this.#mongo = config?.mongo ?? config?.db ?? null
-    // this.#rootDir = config?.rootDir ?? process.env.ALBUMS_ROOT_DIR ?? './albums'
+    this.#collection = config.collection ?? null
     this.#rootDir = config?.rootDir ?? process.env.ALBUMS_ROOT_DIR ?? null
     this.#rootDir = (this.#rootDir) ? path.resolve(this.#rootDir) : null
     this.#albumId = config?.albumId ?? config.Id ?? null
@@ -81,6 +85,8 @@ class Album {
     this.#albumDescription = config?.albumDescription ?? config.description ?? null
     // pseudo-protected properties
     // this._directoryIterator = null
+    this._numberOfImages = 0
+    this._metadata = null
   }
 
   /**
@@ -126,11 +132,34 @@ class Album {
     try {
       this.#directoryIterator = await this.#dir()
       this.#images = await fs.readdir(this.#albumDir)
-      this.#albumJson = this.createAlbumJson()
+      this._numberOfImages = this.#images.length
     } catch (e) {
-      error(`Failed to set the directory iterator on ${this.#albumDir}`)
-      throw new Error(e)
+      const msg = `Failed to set the directory iterator on ${this.#albumDir}`
+      error(msg)
+      throw new Error(msg, { cause: e })
     }
+    try {
+      const exiftool = await new Exiftool().init(this.#albumDir)
+      this._metadata = await exiftool.getMetadata('', null, '-File:FileName -IPTC:ObjectName -MWG:all')
+      console.log(this._metadata)
+      this.#images.forEach((x, y, z) => {
+        const image = this._metadata.find((m) => m['File:FileName'] === x) ?? {}
+        if (image) {
+          // eslint-disable-next-line
+          z[y] = {
+            url: `${this.#albumUrl}/${x}`,
+            title: image?.['IPTC:ObjectName'] ?? image?.['XMP:Title'],
+            keywords: image?.['Composite:Keywords'],
+            description: image?.['Composite:Description'],
+            creator: image?.['Composite:Creator'],
+          }
+        }
+      })
+    } catch (e) {
+      error('Exiftool failed.')
+      throw new Error('Exiftool failed.', { cause: e })
+    }
+    this.#albumJson = this.createAlbumJson()
     return this
   }
 
@@ -279,7 +308,7 @@ class Album {
     this.#redis = client
   }
 
-  set mongoClieng(client) {
+  set mongoClient(client) {
     this.#mongo = client
   }
 
