@@ -412,3 +412,4 @@ class Album {
 }
 
 export { Album }
+export { Albums } from './Albums.js'
