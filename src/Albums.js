@@ -39,7 +39,8 @@ class Albums {
       collection = mongo
     }
     console.log(`Looking for albums for user: ${user}`)
-    const albumCursor = await collection.find({ albumOwner: user }).toArray()
+    // const albumCursor = await collection.find({ albumOwner: user }).toArray()
+    const albumCursor = await collection.find({ creator: user }, { projection: { name: 1, public: 1, url: 1 } }).toArray()
     console.log('albumCursor: %o', albumCursor)
     return albumCursor
   }
