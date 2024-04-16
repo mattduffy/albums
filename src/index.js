@@ -14,6 +14,8 @@ import {
   _error,
 } from './utils/debug.js'
 
+const ALBUMS = 'albums'
+
 /**
  * A class to model the shape a properties of an album of items, usually photos.
  * @summary A class to model the shape a properties of an album of items, usually photos.
@@ -28,6 +30,8 @@ class Album {
   #mongo
 
   #collection
+
+  #db
 
   #redis
 
@@ -63,7 +67,9 @@ class Album {
    * @param { string } config.albumUrl - Path portion of public url for the album.
    * @param { string } config.albumName - The name of the album.
    * @param { string } config.albumOwer - The name of the album owner.
+   * @param { Boolean } config.public - The visibilty status of the album.
    * @param { Object } config.redis - An instance of a redis connection.
+   * @param { string } config.dbName - A string with the db name if needed.
    * @param { Object } config.mongo - An instance of a mongoDB connection.
    * @param { Object } config.collection - A refernce to a mongoDB collection.
    * @return { Album }
@@ -74,7 +80,14 @@ class Album {
     this.#error = _error.extend('constructor')
     this.#redis = config?.redis ?? null
     this.#mongo = config?.mongo ?? config?.db ?? null
-    this.#collection = config.collection ?? null
+    if ((!config.collection) && (!this.#mongo?.s?.namespace?.collection)) {
+      console.log(this.#mongo)
+      this.#db = this.#mongo.db(config.dbName ?? process.env.DB_NAME).collection(ALBUMS)
+    } else if (config.collection?.collectionName === ALBUMS) {
+      this.#db = config.collection
+    } else {
+      this.#db = null
+    }
     this.#rootDir = config?.rootDir ?? process.env.ALBUMS_ROOT_DIR ?? null
     this.#rootDir = (this.#rootDir) ? path.resolve(this.#rootDir) : null
     this.#albumId = config?.albumId ?? config.Id ?? null
@@ -85,6 +98,7 @@ class Album {
     this.#albumDescription = config?.albumDescription ?? config.description ?? null
     // pseudo-protected properties
     // this._directoryIterator = null
+    this._albumPublic = config?.public ?? false
     this._numberOfImages = 0
     this._metadata = null
   }
@@ -147,7 +161,7 @@ class Album {
         if (image) {
           // eslint-disable-next-line
           z[y] = {
-            url: `${this.#albumUrl}/${x}`,
+            url: (this.#albumUrl) ? `${this.#albumUrl}${(this.#albumUrl.slice(-1) !== '/') ? '/' : ''}${x}` : '',
             title: image?.['IPTC:ObjectName'] ?? image?.['XMP:Title'],
             keywords: image?.['Composite:Keywords'],
             description: image?.['Composite:Description'],
@@ -159,13 +173,44 @@ class Album {
       error('Exiftool failed.')
       throw new Error('Exiftool failed.', { cause: e })
     }
-    this.#albumJson = this.createAlbumJson()
+    this.#albumJson = await this.createAlbumJson()
     return this
+  }
+
+  /**
+   * Save album json to db.
+   * @summary Save album json to db.
+   * @author Matthew Duffy <mattduffy@gmail.com>
+   * @async
+   * @throws { Error } If no db collection is available.
+   * @return { Boolean } Return true if successful save to db, otherwise false.
+   */
+  async save() {
+    const log = _log.extend('save')
+    const error = _error.extend('save')
+    if (!this.#db) {
+      const msg = `No connection to client collection ${ALBUMS}`
+      throw new Error(msg)
+    }
+    if (!this.#albumJson) {
+      this.#albumJson = await this.createAlbumJson()
+    }
+    let saved
+    try {
+      saved = await this.#db.insertOne(this.#albumJson)
+      log('Album save results: %o', saved)
+    } catch (e) {
+      const err = 'Failed to save album json to db.'
+      error(err)
+      throw new Error(err, { cause: e })
+    }
+    return (saved?.insertedId)
   }
 
   /**
    * Resolve the given album directory name into a full file system path.
    * @summary Resolve the given album directory name into a full file system path.
+   * @author Matthew Duffy <mattduffy@gmail.com>
    * @throws { Error } If directory can't be accessed.
    * @return { undefined }
    */
@@ -296,10 +341,12 @@ class Album {
    */
   async createAlbumJson() {
     return {
-      id: this.#albumId,
+      _id: this.#albumId,
+      creator: this.#albumOwner,
       name: this.#albumName,
       url: this.#albumUrl,
       description: this.#albumDescription,
+      public: this._albumPublic,
       images: this.#images,
     }
   }
@@ -392,6 +439,14 @@ class Album {
 
   get description() {
     return this.#albumDescription
+  }
+
+  get public() {
+    return this._albumPublic
+  }
+
+  set public(isPublic = false) {
+    this._albumPublic = isPublic
   }
 
   async getJson() {

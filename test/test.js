@@ -45,7 +45,8 @@ let mongodb
 let ObjectId
 let db
 let collection
-// const skip = { skip: true }
+const skip = { skip: true }
+log(skip)
 describe('First test for albums package', async () => {
   before(async () => {
     log('cwd: ', process.cwd())
@@ -57,7 +58,6 @@ describe('First test for albums package', async () => {
       prefix = testEnv.REDIS_PREFIX
     }
     if (testEnv.HAS_MONGO) {
-      // { mongodb, ObjectId } = await import('../lib/mongodb-client.js');
       const mongo = await import('../lib/mongodb-client.js')
       log(mongodb)
       db = await mongo.mongodb('config/mongodb.env')
@@ -232,9 +232,32 @@ describe('First test for albums package', async () => {
       ioredis,
       rootDir,
       albumOwner: `user-${randomBytes(4).toString('base64url')}`,
+      public: true,
     }
     let album = new Album(opts)
     album = await album.init(extracted.finalPath)
     assert.strictEqual(metadata[metadata.length - 1], album._numberOfImages)
+  })
+
+  it('should save an album json doc to the db collection.', async () => {
+    const owner = 'arnold-96admonsterator'
+    const opts = {
+      collection,
+      rootDir,
+      albumName: 'Save my test album.',
+      albumOwner: owner,
+      albumUrl: `https://${testEnv.DB_NAME}.com/galleries/${owner}/`,
+      albumDescription: 'Test extract an archive and save it as a new image gallery.',
+      public: true,
+    }
+    const unpacker = await new Unpacker()
+    await unpacker.setPath(archive)
+    log(`unpack to ${rootDir}/${opts.albumOwner}`)
+    extracted = await unpacker.unpack(path.join(rootDir, opts.albumOwner))
+    let album = new Album(opts)
+    album = await album.init(extracted.finalPath)
+    const saved = await album.save()
+    log(saved)
+    assert.ok(saved, 'Failed to save album')
   })
 })
