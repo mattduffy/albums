@@ -8,12 +8,16 @@ import path from 'node:path'
 import fs from 'node:fs/promises'
 import { Exiftool } from '@mattduffy/exiftool' // eslint-disable-line import/no-unresolved
 import {
-  _log,
-  _info,
-  _warn,
-  _error,
+  _log as Log,
+  _info as Info,
+  _warn as Warn,
+  _error as Error,
 } from './utils/debug.js'
 
+const _log = Log.extend('album')
+const _info = Info.extend('album')
+const _warn = Warn.extend('album')
+const _error = Error.extend('album')
 const ALBUMS = 'albums'
 
 /**
@@ -117,15 +121,18 @@ class Album {
     if (path !== null || path !== undefined) {
       this.#albumDir = path.resolve(dirPath)
     }
+    const parsedAlbumPath = path.parse(this.#albumDir)
+    log(parsedAlbumPath)
     if (this.#rootDir === null && this.#albumDir !== null) {
       log(this.#rootDir, '/', this.#albumDir)
-      const parsedAlbumPath = path.parse(this.#albumDir)
       if (parsedAlbumPath.root === '') {
         throw new Error('No rootDir given and albumDir is incomplete.')
       } else {
         log('parsedAlbumPath: ', parsedAlbumPath)
       }
     }
+    this.#albumUrl += parsedAlbumPath.base
+    log(`#album url: ${this.#albumUrl}`)
     let dir
     try {
       dir = await this.#checkRootDirExists()
@@ -183,7 +190,7 @@ class Album {
    * @author Matthew Duffy <mattduffy@gmail.com>
    * @async
    * @throws { Error } If no db collection is available.
-   * @return { Boolean } Return true if successful save to db, otherwise false.
+   * @return { ObjectId|Boolean } Return the new monogdb objectId if successfully saved to db, otherwise false.
    */
   async save() {
     const log = _log.extend('save')
@@ -204,7 +211,11 @@ class Album {
       error(err)
       throw new Error(err, { cause: e })
     }
-    return (saved?.insertedId)
+    if (!saved?.insertedId) {
+      return false
+    }
+    this.#albumId = saved.insertedId.toString()
+    return saved.insertedId
   }
 
   /**
@@ -393,7 +404,10 @@ class Album {
   }
 
   get id() {
-    return this.#albumId
+    if (this.#albumId) {
+      return this.#albumId
+    }
+    return undefined
   }
 
   set id(id) {
