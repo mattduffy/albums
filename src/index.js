@@ -51,6 +51,8 @@ class Album {
 
   #albumUrl
 
+  #albumImageUrl
+
   #albumName
 
   #albumOwner
@@ -69,6 +71,7 @@ class Album {
    * @param { string } config.albumId - A string of the unique album id.
    * @param { string } config.albumDir - A string of the album file system path.
    * @param { string } config.albumUrl - Path portion of public url for the album.
+   * @param { string } config.albumImageUrl - Path portion of the public href url from the album images.
    * @param { string } config.albumName - The name of the album.
    * @param { string } config.albumOwer - The name of the album owner.
    * @param { Boolean } config.public - The visibilty status of the album.
@@ -97,6 +100,7 @@ class Album {
     this.#albumId = config?.albumId ?? config.Id ?? null
     this.#albumDir = config?.albumDir ?? config.dir ?? null
     this.#albumUrl = config?.albumUrl ?? config.url ?? null
+    this.#albumImageUrl = config?.albumImageUrl ?? config.imageUrl ?? null
     this.#albumName = config?.albumName ?? config.name ?? null
     this.#albumOwner = config?.albumOwner ?? config.owner ?? null
     this.#albumDescription = config?.albumDescription ?? config.description ?? null
@@ -133,6 +137,8 @@ class Album {
     }
     this.#albumUrl += parsedAlbumPath.base
     log(`#album url: ${this.#albumUrl}`)
+    this.#albumImageUrl += parsedAlbumPath.base
+    log(`#album image url: ${this.#albumImageUrl}`)
     let dir
     try {
       dir = await this.#checkRootDirExists()
@@ -168,11 +174,12 @@ class Album {
         if (image) {
           // eslint-disable-next-line
           z[y] = {
-            url: (this.#albumUrl) ? `${this.#albumUrl}${(this.#albumUrl.slice(-1) !== '/') ? '/' : ''}${x}` : '',
+            // url: (this.#albumUrl) ? `${this.#albumUrl}${(this.#albumUrl.slice(-1) !== '/') ? '/' : ''}${x}` : '',
+            url: (this.#albumImageUrl) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${x}` : '',
             title: image?.['IPTC:ObjectName'] ?? image?.['XMP:Title'],
             keywords: image?.['Composite:Keywords'],
             description: image?.['Composite:Description'],
-            creator: image?.['Composite:Creator'],
+            creator: image?.['Composite:Creator'] ?? this.#albumOwner,
           }
         }
       })
