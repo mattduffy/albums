@@ -4,7 +4,8 @@
  * @file src/Albums.js An interface to work with multiple albums.
  */
 
-// import { Album } from './index.js'
+import { Album } from './index.js'
+import { ObjectId } from '../lib/mongodb-client.js'
 
 const ALBUMS = 'albums'
 
@@ -16,6 +17,31 @@ class Albums {
   constructor(config = {}) {
     this.#redis = config?.redis ?? null
     this.#mongo = config?.mongo ?? null
+  }
+
+  /*
+   * Find a saved album in the database by given id value and return as an Album instance.
+   * @summary Find a saved album in the database by give id value and return as an Album instance.
+   * @author Matthew Duffy <mattduffy@gmail.com>
+   * @async
+   * @param { MongoClient|Collection } mongo - Either a mongodb client connection or its album collection.
+   * @param { String } id - The string value of an ObjectId to search the db for.
+   * @return { Album|Boolean } - A populated instance of an Album if found, otherwise false.
+   */
+  static async getById(mongo, id) {
+    if (!mongo) return false
+    if (!id) return false
+    let collection
+    if (!mongo.s.namespace.collection) {
+      console.log('Setting db collection to: ', ALBUMS)
+      collection = mongo.collection(ALBUMS)
+    } else {
+      console.log('Collection is already set: ', mongo.collectionName)
+      collection = mongo
+    }
+    const found = await collection.findOne({ _id: new ObjectId(id) })
+    found.collection = collection
+    return new Album(found)
   }
 
   /*
