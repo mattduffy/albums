@@ -7,6 +7,7 @@
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import { Exiftool } from '@mattduffy/exiftool' // eslint-disable-line import/no-unresolved
+import { ObjectId } from '../lib/mongodb-client.js'
 import {
   _log as Log,
   _info as Info,
@@ -74,6 +75,7 @@ class Album {
    * @param { string } config.albumImageUrl - Path portion of the public href url from the album images.
    * @param { string } config.albumName - The name of the album.
    * @param { string } config.albumOwer - The name of the album owner.
+   * @param { Object[] } config.albumImages - An array of JSON objects, each describing an image.
    * @param { Boolean } config.public - The visibilty status of the album.
    * @param { Object } config.redis - An instance of a redis connection.
    * @param { string } config.dbName - A string with the db name if needed.
@@ -90,24 +92,26 @@ class Album {
     if ((!config.collection) && (!this.#mongo?.s?.namespace?.collection)) {
       console.log(this.#mongo)
       this.#db = this.#mongo.db(config.dbName ?? process.env.DB_NAME).collection(ALBUMS)
-    } else if (config.collection?.collectionName === ALBUMS) {
+    // } else if (config.collection?.collectionName === ALBUMS) {
+    } else if (config.collection?.collectionName !== undefined) {
       this.#db = config.collection
     } else {
       this.#db = null
     }
     this.#rootDir = config?.rootDir ?? process.env.ALBUMS_ROOT_DIR ?? null
     this.#rootDir = (this.#rootDir) ? path.resolve(this.#rootDir) : null
-    this.#albumId = config?.albumId ?? config.Id ?? null
-    this.#albumDir = config?.albumDir ?? config.dir ?? null
-    this.#albumUrl = config?.albumUrl ?? config.url ?? null
-    this.#albumImageUrl = config?.albumImageUrl ?? config.imageUrl ?? null
+    this.#albumId = config?.albumId ?? config.Id ?? config?.id ?? config?._id ?? null
+    this.#albumDir = config?.albumDir ?? config?.dir ?? null
+    this.#albumUrl = config?.albumUrl ?? config?.url ?? null
+    this.#albumImageUrl = config?.albumImageUrl ?? config?.imageUrl ?? null
     this.#albumName = config?.albumName ?? config.name ?? null
-    this.#albumOwner = config?.albumOwner ?? config.owner ?? null
-    this.#albumDescription = config?.albumDescription ?? config.description ?? null
+    this.#albumOwner = config?.albumOwner ?? config.owner ?? config?.creator ?? null
+    this.#albumDescription = config?.albumDescription ?? config?.description ?? null
+    this.#images = config?.albumImages ?? config?.images ?? []
     // pseudo-protected properties
     // this._directoryIterator = null
     this._albumPublic = config?.public ?? false
-    this._numberOfImages = 0
+    this._numberOfImages = this.#images?.length ?? 0
     this._metadata = null
   }
 
@@ -122,23 +126,30 @@ class Album {
   async init(dirPath = null) {
     const log = _log.extend('init')
     const error = _error.extend('init')
-    if (path !== null || path !== undefined) {
+    if (dirPath) {
       this.#albumDir = path.resolve(dirPath)
+    } else {
+      this.#albumDir = path.resolve(this.#albumDir)
     }
     const parsedAlbumPath = path.parse(this.#albumDir)
     log(parsedAlbumPath)
     if (this.#rootDir === null && this.#albumDir !== null) {
-      log(this.#rootDir, '/', this.#albumDir)
       if (parsedAlbumPath.root === '') {
         throw new Error('No rootDir given and albumDir is incomplete.')
       } else {
-        log('parsedAlbumPath: ', parsedAlbumPath)
+        // log('parsedAlbumPath: ', parsedAlbumPath)
+        this.#rootDir = parsedAlbumPath.dir
       }
     }
-    this.#albumUrl += parsedAlbumPath.base
-    log(`#album url: ${this.#albumUrl}`)
-    this.#albumImageUrl += parsedAlbumPath.base
-    log(`#album image url: ${this.#albumImageUrl}`)
+    log(this.#rootDir, '/', this.#albumDir)
+    if (!this.#albumUrl) {
+      this.#albumUrl += parsedAlbumPath.base
+      log(`#album url: ${this.#albumUrl}`)
+    }
+    if (!this.#albumImageUrl) {
+      this.#albumImageUrl += parsedAlbumPath.base
+      log(`#album image url: ${this.#albumImageUrl}`)
+    }
     let dir
     try {
       dir = await this.#checkRootDirExists()
@@ -147,47 +158,46 @@ class Album {
         dir = await this.#makeRootDir(this.#rootDir)
       }
     } catch (e) {
-      error(e)
-      throw new Error(e)
+      const msg = 'Failed to create directory iterator on album dir.'
+      error(msg)
+      throw new Error(msg, { cause: e })
     }
     try {
       await this.#resolveAlbumDirPath()
     } catch (e) {
-      error('Problem resolving album directory path.')
-      throw new Error(e)
+      const msg = 'Problem resolving album directory path.'
+      error(msg)
+      throw new Error(msg, { cause: e })
     }
     try {
       this.#directoryIterator = await this.#dir()
-      this.#images = await fs.readdir(this.#albumDir)
-      this._numberOfImages = this.#images.length
+      if (this.#images.length > 0) {
+        this._numberOfImages = this.#images.length
+      } else {
+        this.#images = await fs.readdir(this.#albumDir)
+        this._numberOfImages = this.#images.length
+      }
     } catch (e) {
       const msg = `Failed to set the directory iterator on ${this.#albumDir}`
       error(msg)
       throw new Error(msg, { cause: e })
     }
     try {
-      const exiftool = await new Exiftool().init(this.#albumDir)
-      this._metadata = await exiftool.getMetadata('', null, '-File:FileName -IPTC:ObjectName -MWG:all')
-      console.log(this._metadata)
-      this.#images.forEach((x, y, z) => {
-        const image = this._metadata.find((m) => m['File:FileName'] === x) ?? {}
-        if (image) {
-          // eslint-disable-next-line
-          z[y] = {
-            // url: (this.#albumUrl) ? `${this.#albumUrl}${(this.#albumUrl.slice(-1) !== '/') ? '/' : ''}${x}` : '',
-            url: (this.#albumImageUrl) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${x}` : '',
-            title: image?.['IPTC:ObjectName'] ?? image?.['XMP:Title'],
-            keywords: image?.['Composite:Keywords'],
-            description: image?.['Composite:Description'],
-            creator: image?.['Composite:Creator'] ?? this.#albumOwner,
-          }
-        }
-      })
+      await this.getMetadata()
     } catch (e) {
-      error('Exiftool failed.')
-      throw new Error('Exiftool failed.', { cause: e })
+      const msg = 'Exiftool failed.'
+      error(msg)
+      throw new Error(msg, { cause: e })
     }
-    this.#albumJson = await this.createAlbumJson()
+    try {
+      if (!this.#albumJson) {
+        this.#albumJson = await this.createAlbumJson()
+      }
+    } catch (e) {
+      const msg = 'Creating album json failed.'
+      error(msg)
+      throw new Error(msg, { cause: e })
+    }
     return this
   }
 
@@ -211,18 +221,44 @@ class Album {
     }
     let saved
     try {
-      saved = await this.#db.insertOne(this.#albumJson)
+      const filter = { _id: new ObjectId(this.#albumId) }
+      const options = { upsert: true }
+      if (!this.#albumId) {
+        this.#albumId = new ObjectId(this.#albumId)
+        this.#albumJson._id = this.#albumId
+        saved = await this.#db.insertOne(this.#albumJson)
+      } else {
+        log('save filter: %o', filter)
+        log('replace doc: %o', this.#albumJson)
+        // saved = await this.#db.replaceOne(filter, this.#albumJson, options)
+        const update = {
+          $set: {
+            dir: this.#albumDir,
+            imageUrl: this.#albumImageUrl,
+            creator: this.#albumOwner,
+            name: this.#albumName,
+            url: this.#albumUrl,
+            description: this.#albumDescription,
+            public: this._albumPublic,
+            image: this.#images,
+          },
+        }
+        saved = await this.#db.updateOne(filter, update, options)
+        saved.insertedId = this.#albumId
+      }
       log('Album save results: %o', saved)
     } catch (e) {
       const err = 'Failed to save album json to db.'
       error(err)
       throw new Error(err, { cause: e })
     }
+    // return saved
     if (!saved?.insertedId) {
       return false
     }
     this.#albumId = saved.insertedId.toString()
-    return saved.insertedId
+    // return saved.insertedId
+    return saved
   }
 
   /**
@@ -350,6 +386,40 @@ class Album {
   }
 
   /*
+   * Extract the metadata from the images in the album.
+   * @summary Extract the metadata from the images in the album.
+   * @author Matthew Duffy <mattduffy@gmail.com>
+   * @async
+   * @return { Oject|Boolean } - The extracted metadata in JSON format, or false if no images found.
+   */
+  async getMetadata() {
+    if (this.#images.length < 1) {
+      return false
+    }
+    console.log(this.#images)
+    if (this.#images[0]?.url === undefined) {
+      const exiftool = await new Exiftool().init(this.#albumDir)
+      this._metadata = await exiftool.getMetadata('', null, '-File:FileName -IPTC:ObjectName -MWG:all')
+      // console.log(this._metadata)
+      this.#images.forEach((x, y, z) => {
+        const image = this._metadata.find((m) => m['File:FileName'] === x) ?? {}
+        if (image) {
+          // eslint-disable-next-line
+          z[y] = {
+            // url: (this.#albumUrl) ? `${this.#albumUrl}${(this.#albumUrl.slice(-1) !== '/') ? '/' : ''}${x}` : '',
+            url: (this.#albumImageUrl) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${x}` : '',
+            title: image?.['IPTC:ObjectName'] ?? image?.['XMP:Title'],
+            keywords: image?.['Composite:Keywords'],
+            description: image?.['Composite:Description'],
+            creator: image?.['Composite:Creator'] ?? this.#albumOwner,
+          }
+        }
+      })
+    }
+    return this._metadata
+  }
+
+  /*
    * Build the JSON object for the album.
    * @summary Build the JSON object for the album.
    * @author Matthew Duffy <mattduffy@gmail.com>
@@ -360,6 +430,8 @@ class Album {
   async createAlbumJson() {
     return {
       _id: this.#albumId,
+      dir: this.#albumDir,
+      imageUrl: this.#albumImageUrl,
       creator: this.#albumOwner,
       name: this.#albumName,
       url: this.#albumUrl,
@@ -488,4 +560,4 @@ class Album {
 }
 
 export { Album }
-export { Albums } from './Albums.js'
+// export { Albums } from './Albums.js'
