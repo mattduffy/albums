@@ -64,11 +64,40 @@ class Albums {
       console.log('Collection is already set: ', mongo.collectionName)
       collection = mongo
     }
+    const pipeline = []
+    const match = {
+      $match: {
+        creator: user,
+      },
+    }
+    const bucket = {
+      $bucket: {
+        groupBy: '$public',
+        boundaries: [false, true],
+        default: 'public',
+        output: {
+          count: { $sum: 1 },
+          albums: {
+            $push: {
+              id: '$_id',
+              public: '$public',
+              name: '$name',
+              description: '$description',
+            },
+          },
+        },
+      },
+    }
+    pipeline.push(match)
+    pipeline.push(bucket)
+    pipeline.push({ $match: { count: { $gt: 0 } } })
+    console.log(pipeline)
     console.log(`Looking for albums for user: ${user}`)
     // const albumCursor = await collection.find({ albumOwner: user }).toArray()
-    const albumCursor = await collection.find({ creator: user }, { projection: { name: 1, public: 1, url: 1 } }).toArray()
-    console.log('albumCursor: %o', albumCursor)
-    return albumCursor
+    // const albumCursor = await collection.find({ creator: user }, { projection: { name: 1, public: 1, url: 1 } }).toArray()
+    const albumBuckets = await collection.aggregate(pipeline).toArray()
+    // console.log('albumBuckets: %o', albumBuckets)
+    return albumBuckets
   }
 
   /*
