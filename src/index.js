@@ -240,7 +240,7 @@ class Album {
             url: this.#albumUrl,
             description: this.#albumDescription,
             public: this._albumPublic,
-            image: this.#images,
+            images: this.#images,
           },
         }
         saved = await this.#db.updateOne(filter, update, options)
@@ -376,8 +376,7 @@ class Album {
    * Provide a public interface to an iteratable directory read handle.
    * @summary Provide a public interface to an interable directory read handle.
    * @async
-   * @retuun { fs.Dir|null} - AsyncIterator of fs.Dir instance.
-   */
+   * @retuun { fs.Dir|null} - AsyncIterator of fs.Dir instance.  */
   async next() {
     if (this.#directoryIterator) {
       return this.#directoryIterator.read()
@@ -393,21 +392,45 @@ class Album {
    * @return { Oject|Boolean } - The extracted metadata in JSON format, or false if no images found.
    */
   async getMetadata() {
+    const log = _log.extend('getMetadata')
+    const error = _error.extend('getMetadata')
     if (this.#images.length < 1) {
       return false
     }
-    console.log(this.#images)
+    log(this.#images)
     if (this.#images[0]?.url === undefined) {
       const exiftool = await new Exiftool().init(this.#albumDir)
-      this._metadata = await exiftool.getMetadata('', null, '-File:FileName -IPTC:ObjectName -MWG:all')
-      // console.log(this._metadata)
-      this.#images.forEach((x, y, z) => {
+      exiftool.enableBinaryTagOutput(true)
+      this._metadata = await exiftool.getMetadata('', null, '-File:FileName -IPTC:ObjectName -MWG:all -preview:all')
+      // log(this._metadata)
+      this.#images.forEach(async (x, y, z) => {
         const image = this._metadata.find((m) => m['File:FileName'] === x) ?? {}
         if (image) {
+          let thumbName = null
+          log(`this.#albumImageUrl: ${this.#albumImageUrl}`)
+          if (image?.['EXIF:ThumbnailImage']) {
+            const sourceParts = path.parse(z[y].url)
+            log(sourceParts)
+            thumbName = `${sourceParts.name}_thumbnail${sourceParts.ext}`
+            const thumbPath = `${sourceParts.dir}/${thumbName}`
+            const fullThumbPath = path.resolve('public', thumbPath)
+            log(thumbName)
+            const buffer = Buffer.from(image['EXIF:ThumbnailImage'].slice(7), 'base64')
+            try {
+              // await fs.writeFile(path.resolve('public', thumbPath), buffer)
+              await fs.writeFile(fullThumbPath, buffer)
+              // eslint-disable-next-line
+              // z[y].thumbnail = `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${thumbName}`
+            } catch (e) {
+              error(`Failed to create thumbnail image for ${z[y].url}`)
+              error(`save path: ${fullThumbPath}`)
+              error(e)
+            }
+          }
           // eslint-disable-next-line
           z[y] = {
-            // url: (this.#albumUrl) ? `${this.#albumUrl}${(this.#albumUrl.slice(-1) !== '/') ? '/' : ''}${x}` : '',
             url: (this.#albumImageUrl) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${x}` : '',
+            thumbnail: (thumbName) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${thumbName}` : '',
             title: image?.['IPTC:ObjectName'] ?? image?.['XMP:Title'],
             keywords: image?.['Composite:Keywords'],
             description: image?.['Composite:Description'],
