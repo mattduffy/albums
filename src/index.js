@@ -397,47 +397,50 @@ class Album {
     if (this.#images.length < 1) {
       return false
     }
-    log(this.#images)
     if (this.#images[0]?.url === undefined) {
+      const tempImagesArray = []
       const exiftool = await new Exiftool().init(this.#albumDir)
       exiftool.enableBinaryTagOutput(true)
       this._metadata = await exiftool.getMetadata('', null, '-File:FileName -IPTC:ObjectName -MWG:all -preview:all')
-      // log(this._metadata)
-      this.#images.forEach(async (x, y, z) => {
-        const image = this._metadata.find((m) => m['File:FileName'] === x) ?? {}
+      /* eslint-disable-next-line */
+      for await (const img of this.#images) {
+        const image = this._metadata.find((m) => m['File:FileName'] === img) ?? {}
         if (image) {
-          let thumbName = null
-          log(`this.#albumImageUrl: ${this.#albumImageUrl}`)
+          // log(`this.#albumImageUrl: ${this.#albumImageUrl}`)
+          const imageUrl = (this.#albumImageUrl) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${img}` : ''
+          log(`imageUrl: ${imageUrl}`)
+          let thumbName
+          let thumbUrl
           if (image?.['EXIF:ThumbnailImage']) {
-            const sourceParts = path.parse(z[y].url)
-            log(sourceParts)
+            // log('has thumbnail data')
+            const sourceParts = path.parse(imageUrl)
             thumbName = `${sourceParts.name}_thumbnail${sourceParts.ext}`
             const thumbPath = `${sourceParts.dir}/${thumbName}`
             const fullThumbPath = path.resolve('public', thumbPath)
-            log(thumbName)
+            // log('thumb full path: ', fullThumbPath)
+            thumbUrl = `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${thumbName}`
+            log(`thumbUrl: ${thumbUrl} \n`)
             const buffer = Buffer.from(image['EXIF:ThumbnailImage'].slice(7), 'base64')
             try {
-              // await fs.writeFile(path.resolve('public', thumbPath), buffer)
               await fs.writeFile(fullThumbPath, buffer)
-              // eslint-disable-next-line
-              // z[y].thumbnail = `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${thumbName}`
             } catch (e) {
-              error(`Failed to create thumbnail image for ${z[y].url}`)
+              error(`Failed to create thumbnail image for ${image.SourceFile}`)
               error(`save path: ${fullThumbPath}`)
               error(e)
             }
           }
-          // eslint-disable-next-line
-          z[y] = {
-            url: (this.#albumImageUrl) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${x}` : '',
-            thumbnail: (thumbName) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${thumbName}` : '',
+          tempImagesArray.push({
+            url: imageUrl,
+            thumbnail: thumbUrl,
             title: image?.['IPTC:ObjectName'] ?? image?.['XMP:Title'],
             keywords: image?.['Composite:Keywords'],
             description: image?.['Composite:Description'],
             creator: image?.['Composite:Creator'] ?? this.#albumOwner,
-          }
+          })
+          log('tempImagesArray: %o', tempImagesArray)
         }
-      })
+        this.#images = tempImagesArray
+      }
     }
     return this._metadata
   }
