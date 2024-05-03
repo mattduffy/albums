@@ -430,6 +430,7 @@ class Album {
             }
           }
           tempImagesArray.push({
+            name: img,
             url: imageUrl,
             thumbnail: thumbUrl,
             title: image?.['IPTC:ObjectName'] ?? image?.['XMP:Title'],
