@@ -40,6 +40,7 @@ class Albums {
       collection = mongo
     }
     const found = await collection.findOne({ _id: new ObjectId(id) })
+    console.log(found.keywords)
     found.collection = collection
     return new Album(found)
   }

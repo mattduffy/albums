@@ -7,6 +7,7 @@
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import { Exiftool } from '@mattduffy/exiftool' // eslint-disable-line import/no-unresolved
+import { Image } from './image.js'
 import { ObjectId } from '../lib/mongodb-client.js'
 import {
   _log as Log,
@@ -60,6 +61,8 @@ class Album {
 
   #albumJson
 
+  #albumKeywords
+
   #albumDescription
 
   #directoryIterator
@@ -75,6 +78,8 @@ class Album {
    * @param { string } config.albumImageUrl - Path portion of the public href url from the album images.
    * @param { string } config.albumName - The name of the album.
    * @param { string } config.albumOwer - The name of the album owner.
+   * @param { string } config.albumKeywords - The keywords of the album.
+   * @param { string } config.albumDescription - The description of the album.
    * @param { Object[] } config.albumImages - An array of JSON objects, each describing an image.
    * @param { Boolean } config.public - The visibilty status of the album.
    * @param { Object } config.redis - An instance of a redis connection.
@@ -106,6 +111,16 @@ class Album {
     this.#albumImageUrl = config?.albumImageUrl ?? config?.imageUrl ?? null
     this.#albumName = config?.albumName ?? config.name ?? null
     this.#albumOwner = config?.albumOwner ?? config.owner ?? config?.creator ?? null
+    if (config?.albumKeywords) {
+      this.#albumKeywords = new Set(config.albumKeywords)
+    } else if (config?.keywords) {
+      this.#albumKeywords = new Set(config.keywords)
+    } else {
+      this.#albumKeywords = new Set()
+    }
+    this.#log(config?.albumKeywords)
+    this.#log(config?.keywords)
+    this.#log(this.#albumKeywords)
     this.#albumDescription = config?.albumDescription ?? config?.description ?? null
     this.#images = config?.albumImages ?? config?.images ?? []
     // pseudo-protected properties
@@ -239,6 +254,7 @@ class Album {
             name: this.#albumName,
             url: this.#albumUrl,
             description: this.#albumDescription,
+            keywords: Array.from(this.#albumKeywords),
             public: this._albumPublic,
             images: this.#images,
           },
@@ -253,11 +269,15 @@ class Album {
       throw new Error(err, { cause: e })
     }
     // return saved
-    if (!saved?.insertedId) {
+    // modifiedCount
+    // upsertedCount
+    // upsertedId
+    if (!saved?.insertedId || saved?.modifiedCount < 1) {
       return false
     }
-    this.#albumId = saved.insertedId.toString()
-    // return saved.insertedId
+    if (!this.#albumId) {
+      this.#albumId = saved.insertedId.toString()
+    }
     return saved
   }
 
@@ -463,6 +483,7 @@ class Album {
       name: this.#albumName,
       url: this.#albumUrl,
       description: this.#albumDescription,
+      keywords: Array.from(this.#albumKeywords),
       public: this._albumPublic,
       images: this.#images,
     }
@@ -507,6 +528,14 @@ class Album {
       }
     }
     return this.init()
+  }
+
+  addKeyword(word) {
+    return Array.from(this.#albumKeywords.add(word))
+  }
+
+  removeKeyword(word) {
+    return this.#albumKeywords.delete(word)
   }
 
   get id() {
@@ -559,6 +588,18 @@ class Album {
 
   get description() {
     return this.#albumDescription
+  }
+
+  set keywords(words) {
+    // console.log(words)
+    words.forEach((word) => {
+      this.#albumKeywords.add(word)
+    })
+  }
+
+  get keywords() {
+    console.log(this.#albumKeywords)
+    return Array.from(this.#albumKeywords)
   }
 
   get public() {
