@@ -444,6 +444,7 @@ class Album {
     log(tagArray.join(' '))
     try {
       exiftool = await new Exiftool().init(theImage)
+      exiftool.setOverwriteOriginal(true)
       result.metadata = await exiftool.writeMetadataToTag(tagArray)
       if (image?.title) {
         this.#images[index].title = image.title
