@@ -70,7 +70,7 @@ class Album {
   /**
    * Create an instance of Album.
    * @summary Create an instance of Album.
-   * @param { Object } config - An object literal contain configuration properties.
+   * @param { Object } config - An object literal containing configuration properties.
    * @param { string } config.rootDir - A string path for the root directory for all albums.
    * @param { string } config.albumId - A string of the unique album id.
    * @param { string } config.albumDir - A string of the album file system path.
@@ -118,9 +118,6 @@ class Album {
     } else {
       this.#albumKeywords = new Set()
     }
-    this.#log(config?.albumKeywords)
-    this.#log(config?.keywords)
-    this.#log(this.#albumKeywords)
     this.#albumDescription = config?.albumDescription ?? config?.description ?? null
     this.#images = config?.albumImages ?? config?.images ?? []
     // pseudo-protected properties
@@ -268,10 +265,7 @@ class Album {
       error(err)
       throw new Error(err, { cause: e })
     }
-    // return saved
-    // modifiedCount
-    // upsertedCount
-    // upsertedId
+    // modifiedCount, upsertedCount, upsertedId
     if (!saved?.insertedId || saved?.modifiedCount < 1) {
       return false
     }
@@ -404,6 +398,81 @@ class Album {
     return null
   }
 
+  /**
+   * Update saved details about an image, including committing changes into metadata.
+   * @summary Update saved details about an image, including committing changes into metadata.
+   * @author Matthew Duffy <mattduffy@gmail.com>
+   * @async
+   * @param { Object } image=null - An object literal containing image details to update.
+   * @param { string } image.name - The name of the image to update.
+   * @param { string } [image.title] - The new title of the image.
+   * @param { string } [image.description] - The new description of the image.
+   * @param { string[] } [image.keywords] - An array of keywords for the image.
+   * @return { Object|Boolean } - ...
+   */
+  async updateImage(image = null) {
+    const log = _log.extend('updateImage')
+    const error = _error.extend('updateImage')
+    let exiftool
+    const result = {}
+    log(image)
+    if (!image) {
+      result.error = 'Missing required parameter: image.'
+      error(result.error)
+      return result
+    }
+    const index = this.#images.findIndex((i) => i.name === image.name)
+    if (index === -1) {
+      result.message = `${image.name} not found in this album.`
+      log(result.message)
+      return result
+    }
+    const tagArray = []
+    if (image?.title !== '') {
+      tagArray.push(`-XMP:Title="${image.title}"`)
+      tagArray.push(`-IPTC:ObjectName="${image.title}"`)
+    }
+    if (image?.description !== '') {
+      tagArray.push(`-MWG:Description="${image.description}"`)
+    }
+    if (image?.keywords) {
+      tagArray.push(`-MWG:Keywords="${image.keywords.join(', ')}"`)
+    }
+    const theImage = path.resolve(`${this.#albumDir}/${image.name}`)
+    log(`The image to update: ${theImage}`)
+    log(tagArray)
+    log(tagArray.join(' '))
+    try {
+      exiftool = await new Exiftool().init(theImage)
+      result.metadata = await exiftool.writeMetadataToTag(tagArray)
+      if (image?.title) {
+        this.#images[index].title = image.title
+      }
+      if (image?.description) {
+        this.#images[index].description = image.description
+      }
+      if (image?.keywords) {
+        this.#images[index].keywords = image.keywords
+      }
+    } catch (e) {
+      const err = `Failed to update metadata for image: ${theImage}`
+      result.error = err
+      error(err)
+      error(result)
+      error(e)
+    }
+    try {
+      result.save = await this.save()
+    } catch (e) {
+      const err = 'Failed to save changes to db.'
+      result.error += `\n${err}`
+      error(err)
+      error(result)
+      error(e)
+    }
+    return result
+  }
+
   /*
    * Extract the metadata from the images in the album.
    * @summary Extract the metadata from the images in the album.
@@ -454,7 +523,7 @@ class Album {
             url: imageUrl,
             thumbnail: thumbUrl,
             title: image?.['IPTC:ObjectName'] ?? image?.['XMP:Title'],
-            keywords: image?.['Composite:Keywords'],
+            keywords: image?.['Composite:Keywords'] ?? [],
             description: image?.['Composite:Description'],
             creator: image?.['Composite:Creator'] ?? this.#albumOwner,
           })
