@@ -25,10 +25,11 @@ class Albums {
    * @author Matthew Duffy <mattduffy@gmail.com>
    * @async
    * @param { MongoClient|Collection } mongo - Either a mongodb client connection or its album collection.
+   * @param { Redis } redis - A redis clint connection instance.
    * @param { String } id - The string value of an ObjectId to search the db for.
    * @return { Album|Boolean } - A populated instance of an Album if found, otherwise false.
    */
-  static async getById(mongo, id) {
+  static async getById(mongo, id, redis) {
     if (!mongo) return false
     if (!id) return false
     let collection
@@ -42,6 +43,7 @@ class Albums {
     const found = await collection.findOne({ _id: new ObjectId(id) })
     console.log(found.keywords)
     found.collection = collection
+    found.redis = redis
     return new Album(found)
   }
 
@@ -113,9 +115,11 @@ class Albums {
   static async recentlyAdded(redis, count = 10) {
     const recentlyAddedStream = 'albums:recent:10'
     const response = await redis.xrevrange(recentlyAddedStream, '+', '-', 'COUNT', count)
+    console.log(`redis: xrevrange ${recentlyAddedStream} + - COUNT ${count}`)
     console.log(response)
     // [ [ '1687734539621-0', [ 'album', '{"name":"Here is a sixth one"}' ] ] ]
     const recent10 = response.map((a) => JSON.parse(a[1][1]))
+    console.log(recent10)
     return recent10
   }
 
@@ -131,6 +135,7 @@ class Albums {
     const publicAlbumsView = 'publicAlbumsView'
     const collection = mongo.collection(publicAlbumsView)
     const publicList = await collection.find().toArray()
+    console.log(publicList)
     return publicList
   }
 }

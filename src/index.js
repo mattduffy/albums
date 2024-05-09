@@ -7,7 +7,7 @@
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import { Exiftool } from '@mattduffy/exiftool' // eslint-disable-line import/no-unresolved
-import { Image } from './image.js'
+// import { Image } from './image.js'
 import { ObjectId } from '../lib/mongodb-client.js'
 import {
   _log as Log,
@@ -33,6 +33,8 @@ class Album {
 
   #error
 
+  #newAlbum
+
   #mongo
 
   #collection
@@ -40,6 +42,8 @@ class Album {
   #db
 
   #redis
+
+  #streamId
 
   #cached
 
@@ -71,6 +75,7 @@ class Album {
    * Create an instance of Album.
    * @summary Create an instance of Album.
    * @param { Object } config - An object literal containing configuration properties.
+   * @param { Boolean } [config.new = false] - True only if creating a new album.
    * @param { string } config.rootDir - A string path for the root directory for all albums.
    * @param { string } config.albumId - A string of the unique album id.
    * @param { string } config.albumDir - A string of the album file system path.
@@ -83,6 +88,7 @@ class Album {
    * @param { Object[] } config.albumImages - An array of JSON objects, each describing an image.
    * @param { Boolean } config.public - The visibilty status of the album.
    * @param { Object } config.redis - An instance of a redis connection.
+   * @param { string } [config.streamId = null] - A stream id for redis recently added stream.
    * @param { string } config.dbName - A string with the db name if needed.
    * @param { Object } config.mongo - An instance of a mongoDB connection.
    * @param { Object } config.collection - A refernce to a mongoDB collection.
@@ -92,7 +98,9 @@ class Album {
     // private properties
     this.#log = _log.extend('constructor')
     this.#error = _error.extend('constructor')
+    this.#newAlbum = config?.new ?? false
     this.#redis = config?.redis ?? null
+    this.#streamId = config?.streamId ?? null
     this.#mongo = config?.mongo ?? config?.db ?? null
     if ((!config.collection) && (!this.#mongo?.s?.namespace?.collection)) {
       console.log(this.#mongo)
@@ -214,6 +222,66 @@ class Album {
   }
 
   /**
+   * Remove album from the redis new albums stream.
+   * @summary Remove album from the redis new albums stream.
+   * @author Matthew Duffy <mattduffy@gmail.com>
+   * @return { Boolean|undefined } - Returns true if successfully removed from the redis stream.
+   */
+  async removeFromRedisStream() {
+    const log = _log.extend('removeFromRedisStream')
+    const error = _error.extend('removeFromRedisStream')
+    if (this._albumPublic) {
+      return undefined
+    }
+    try {
+      const response = await this.#redis.xdel('albums:recent:10', this.#streamId)
+      this.#streamId = null
+      log(response)
+    } catch (e) {
+      error(e)
+      return false
+    }
+    return true
+  }
+
+  /**
+   * Add newly created album to the redis new albums stream.
+   * @summary Add newly created album to the redis new albums stream.
+   * @author Matthew Duffy <mattduffy@gmail.com>
+   * @return { Boolean } - Returns true if successfully added to redis stream.
+   */
+  async addToRedisStream() {
+    const log = _log.extend('addToRedisStream')
+    const error = _error.extend('addToRedisStream')
+    log(`adding new album (id: ${this.#albumId}) to redis stream`)
+    if (!this.#redis) {
+      error('No redis connection provided.')
+      return false
+    }
+    if (!this._albumPublic) {
+      // only add public albums to the redis stream
+      return false
+    }
+    let response
+    try {
+      const entry = {
+        id: this.#albumId,
+        name: this.#albumName,
+        owner: this.#albumOwner,
+        access: this._albumPublic,
+      }
+      // await this.#redis.xadd('albums:recent:10', '*', 'album', 'id', `${this.#albumId}`, 'name', `${this.#albumName}`, 'owner', `${this.#albumOwner}`, 'access', `${this._albumPublic}`)
+      response = await this.#redis.xadd('albums:recent:10', '*', 'album', JSON.stringify(entry))
+      log('xadd response: ', response)
+      this.#streamId = response
+    } catch (e) {
+      error(e)
+      return false
+    }
+    return true
+  }
+
+  /**
    * Save album json to db.
    * @summary Save album json to db.
    * @author Matthew Duffy <mattduffy@gmail.com>
@@ -232,8 +300,28 @@ class Album {
       this.#albumJson = await this.createAlbumJson()
     }
     let saved
+    let filter
+    let theId
+    if (this.#newAlbum) {
+      theId = new ObjectId()
+    } else {
+      theId = new ObjectId(this.#albumId)
+    }
+    log(`the _id is ${theId}`)
     try {
-      const filter = { _id: new ObjectId(this.#albumId) }
+      if (this._albumPublic) {
+        const add = await this.addToRedisStream()
+        log(`album id: ${theId} was added to the redis recent10 stream.`, add)
+      } else {
+        const remove = await this.removeFromRedisStream()
+        log(`album id: ${theId} was removed from the redis recent10 stream.`, remove)
+      }
+    } catch (e) {
+      saved.redis = { msg: 'Failed to add new album to redis stream.', e }
+      error(e)
+    }
+    try {
+      filter = { _id: new ObjectId(theId) }
       const options = { upsert: true }
       if (!this.#albumId) {
         this.#albumId = new ObjectId(this.#albumId)
@@ -245,6 +333,7 @@ class Album {
         // saved = await this.#db.replaceOne(filter, this.#albumJson, options)
         const update = {
           $set: {
+            streamId: this.#streamId,
             dir: this.#albumDir,
             imageUrl: this.#albumImageUrl,
             creator: this.#albumOwner,
@@ -256,6 +345,10 @@ class Album {
             images: this.#images,
           },
         }
+        if (this.#newAlbum) {
+          update.$set._id = theId
+        }
+        log('the update doc: %o', update)
         saved = await this.#db.updateOne(filter, update, options)
         saved.insertedId = this.#albumId
       }
@@ -265,6 +358,7 @@ class Album {
       error(err)
       throw new Error(err, { cause: e })
     }
+    
     // modifiedCount, upsertedCount, upsertedId
     if (!saved?.insertedId || saved?.modifiedCount < 1) {
       return false
