@@ -284,6 +284,49 @@ class Album {
   }
 
   /**
+   * Delete the album.
+   * @summary Delete the album.
+   * @author Matthew Duffy <mattduffy@gmail.com>
+   * @async
+   * @return { Booloean } - True if album is successfully deleted.
+   */
+  async deleteAlbum() {
+    const log = _log.extend('deleteAlbum')
+    const error = _error.extend('deleteAlbum')
+    log(`About to delete album: ${this.#albumName}`)
+    log(this.#albumDir)
+    let deleted
+    try {
+      deleted = await fs.rm(path.resolve(this.#albumDir))
+    } catch (e) {
+      error(e)
+      return false
+    }
+    try {
+      const filter = { _id: new ObjectId(this.#albumId) }
+      const response = await this.#db.deleteOne(filter)
+      if (response.deletedCount !== 1) {
+        deleted = false
+      }
+    } catch (e) {
+      error(`failed to remove albumId ${this.#albumId} from db.`)
+      error(e)
+      deleted = false
+    }
+    try {
+      const removed = await this.removeFromRedisStream()
+      if (!removed) {
+        deleted = false
+      }
+    } catch (e) {
+      error(`failed to remove albumId ${this.#albumId}, streamId ${this.#streamId} from redis stream.`)
+      error(e)
+      deleted = false
+    }
+    return (deleted === undefined)
+  }
+
+  /**
    * Save album json to db.
    * @summary Save album json to db.
    * @author Matthew Duffy <mattduffy@gmail.com>
