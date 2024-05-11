@@ -233,13 +233,15 @@ class Album {
     if (this._albumPublic) {
       return undefined
     }
-    try {
-      const response = await this.#redis.xdel('albums:recent:10', this.#streamId)
-      this.#streamId = null
-      log(response)
-    } catch (e) {
-      error(e)
-      return false
+    if (this.#streamId) {
+      try {
+        const response = await this.#redis.xdel('albums:recent:10', this.#streamId)
+        this.#streamId = null
+        log(response)
+      } catch (e) {
+        error(e)
+        return false
+      }
     }
     return true
   }
