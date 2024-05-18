@@ -13,13 +13,13 @@ import {
   _log as Log,
   _info as Info,
   _warn as Warn,
-  _error as Error,
+  _error as _Error,
 } from './utils/debug.js'
 
 const _log = Log.extend('album')
 const _info = Info.extend('album')
 const _warn = Warn.extend('album')
-const _error = Error.extend('album')
+const _error = _Error.extend('album')
 const ALBUMS = 'albums'
 
 /**
@@ -57,6 +57,8 @@ class Album {
 
   #albumUrl
 
+  #albumPreviewImage
+
   #albumImageUrl
 
   #albumName
@@ -80,6 +82,7 @@ class Album {
    * @param { string } config.albumId - A string of the unique album id.
    * @param { string } config.albumDir - A string of the album file system path.
    * @param { string } config.albumUrl - Path portion of public url for the album.
+   * @param { string } config.albumPreviewImage - Path portion of the url to show album preview image.
    * @param { string } config.albumImageUrl - Path portion of the public href url from the album images.
    * @param { string } config.albumName - The name of the album.
    * @param { string } config.albumOwer - The name of the album owner.
@@ -115,6 +118,7 @@ class Album {
     this.#rootDir = (this.#rootDir) ? path.resolve(this.#rootDir) : null
     this.#albumId = config?.albumId ?? config.Id ?? config?.id ?? config?._id ?? null
     this.#albumDir = config?.albumDir ?? config?.dir ?? null
+    this.#albumPreviewImage = config.albumPreviewImage ?? config.previewImage ?? null
     this.#albumUrl = config?.albumUrl ?? config?.url ?? null
     this.#albumImageUrl = config?.albumImageUrl ?? config?.imageUrl ?? null
     this.#albumName = config?.albumName ?? config.name ?? null
@@ -255,9 +259,12 @@ class Album {
   async addToRedisStream() {
     const log = _log.extend('addToRedisStream')
     const error = _error.extend('addToRedisStream')
-    log(`adding new album (id: ${this.#albumId}) to redis stream`)
     if (!this.#redis) {
       error('No redis connection provided.')
+      return false
+    }
+    if (!this.#albumId) {
+      // only add albums with _id values to the redis stream
       return false
     }
     if (!this._albumPublic) {
@@ -266,6 +273,7 @@ class Album {
     }
     let response
     try {
+      log(`adding new album (id: ${this.#albumId}) to redis stream`)
       const entry = {
         id: this.#albumId,
         name: this.#albumName,
@@ -297,7 +305,7 @@ class Album {
     log(this.#albumDir)
     let deleted
     try {
-      deleted = await fs.rm(path.resolve(this.#albumDir))
+      deleted = await fs.rm(path.resolve(this.#albumDir), { force: true, recursive: true })
     } catch (e) {
       error(e)
       return false
@@ -384,6 +392,7 @@ class Album {
             creator: this.#albumOwner,
             name: this.#albumName,
             url: this.#albumUrl,
+            previewImage: this.#albumPreviewImage,
             description: this.#albumDescription,
             keywords: Array.from(this.#albumKeywords),
             public: this._albumPublic,
@@ -403,7 +412,7 @@ class Album {
       error(err)
       throw new Error(err, { cause: e })
     }
-    
+
     // modifiedCount, upsertedCount, upsertedId
     if (!saved?.insertedId || saved?.modifiedCount < 1) {
       return false
@@ -433,7 +442,8 @@ class Album {
       error(`rootDir:         ${this.#rootDir}`)
       error(`albumDir:        ${this.#albumDir}`)
       error(`path difference: ${pathDiff}`)
-      throw new Error(`Album dir ${this.#albumDir} is not in ${this.#rootDir}`)
+      const err = `Album dir ${this.#albumDir} is not in ${this.#rootDir}`
+      throw new Error(err)
     }
     this.#albumDir = path.resolve(this.#albumDir)
   }
@@ -773,6 +783,18 @@ class Album {
 
   set url(url) {
     this.#albumUrl = url
+  }
+
+  get images() {
+    return this.#images
+  }
+
+  set previewImage(url) {
+    this.#albumPreviewImage = url
+  }
+
+  get previewImage() {
+    return this.#albumPreviewImage
   }
 
   get name() {
