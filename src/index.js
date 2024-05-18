@@ -271,6 +271,16 @@ class Album {
       // only add public albums to the redis stream
       return false
     }
+    if (this.#streamId) {
+      // return true
+      try {
+        const clear = await this.#redis.xdel('albums:recent:10', this.#streamId)
+        log(clear)
+      } catch (e) {
+        error(e)
+        error(`Failed to remove streamId: ${this.#streamId}`)
+      }
+    }
     let response
     try {
       log(`adding new album (id: ${this.#albumId}) to redis stream`)
@@ -279,6 +289,8 @@ class Album {
         name: this.#albumName,
         owner: this.#albumOwner,
         access: this._albumPublic,
+        preview: this.#albumPreviewImage,
+        description: this.#albumDescription,
       }
       // await this.#redis.xadd('albums:recent:10', '*', 'album', 'id', `${this.#albumId}`, 'name', `${this.#albumName}`, 'owner', `${this.#albumOwner}`, 'access', `${this._albumPublic}`)
       response = await this.#redis.xadd('albums:recent:10', '*', 'album', JSON.stringify(entry))
