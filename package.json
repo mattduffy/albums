@@ -37,7 +37,8 @@
   "dependencies": {
     "@mattduffy/exiftool": "file:../exiftool",
     "@mattduffy/unpacker": "file:../unpacker",
-    "debug": "4.3.4"
+    "debug": "4.3.4",
+    "magickwand.js": "1.1.0"
   },
   "keywords": []
 }

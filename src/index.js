@@ -697,7 +697,42 @@ class Album {
     return this._metadata
   }
 
-  /*
+  /**
+   * Generate a thumbnail for an image.
+   * @summary Generate a thumbnail for an image.
+   * @author Matthew Duffy <mattduffy@gmail.com>
+   * @async
+   * @param { String } iamge - A string path value of an image to create a thumbnail of.
+   * @return { undefined }
+   */
+  async generateThumbnail(image) {
+    const log = this.#log.extend('generateThumbnail')
+    const error = this.#error.extend('generateThumbnail')
+    const imageUrl = (this.#albumImageUrl) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${img}` : ''
+    log(`imageUrl: ${imageUrl}`)
+    let thumbName
+    let thumbUrl
+    if (image?.['EXIF:ThumbnailImage']) {
+      // log('has thumbnail data')
+      const sourceParts = path.parse(imageUrl)
+      thumbName = `${sourceParts.name}_thumbnail${sourceParts.ext}`
+      const thumbPath = `${sourceParts.dir}/${thumbName}`
+      const fullThumbPath = path.resolve('public', thumbPath)
+      // log('thumb full path: ', fullThumbPath)
+      thumbUrl = `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${thumbName}`
+      log(`thumbUrl: ${thumbUrl} \n`)
+      const buffer = Buffer.from(image['EXIF:ThumbnailImage'].slice(7), 'base64')
+      try {
+        await fs.writeFile(fullThumbPath, buffer)
+      } catch (e) {
+        error(`Failed to create thumbnail image for ${image.SourceFile}`)
+        error(`save path: ${fullThumbPath}`)
+        error(e)
+      }
+    }
+  }
+
+  /**
    * Build the JSON object for the album.
    * @summary Build the JSON object for the album.
    * @author Matthew Duffy <mattduffy@gmail.com>
