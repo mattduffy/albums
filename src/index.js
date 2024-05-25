@@ -702,13 +702,13 @@ class Album {
    * @summary Generate a thumbnail for an image.
    * @author Matthew Duffy <mattduffy@gmail.com>
    * @async
-   * @param { String } iamge - A string path value of an image to create a thumbnail of.
-   * @return { undefined }
+   * @param { String } iamge - A string name value of an image to create a thumbnail of.
+   * @return { String } thumbUrl - A string path value of the new thumbnail created.
    */
   async generateThumbnail(image) {
     const log = this.#log.extend('generateThumbnail')
     const error = this.#error.extend('generateThumbnail')
-    const imageUrl = (this.#albumImageUrl) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${img}` : ''
+    const imageUrl = (this.#albumImageUrl) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${image}` : ''
     log(`imageUrl: ${imageUrl}`)
     let thumbName
     let thumbUrl
@@ -730,6 +730,7 @@ class Album {
         error(e)
       }
     }
+    return thumbUrl
   }
 
   /**
