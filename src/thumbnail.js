@@ -22,8 +22,8 @@ const _error = Error.extend('thumbnail')
 const THUMBNAILS = 'thumbnails'
 
 /**
- * A class to model the shape a properties of a Thumbnail in an album.
- * @summary A class to model the shape a properties of an Thumbnail in an album.
+ * A class to model the shape and properties of a Thumbnail image in an album.
+ * @summary A class to model the shape and properties of an Thumbnail image in an album.
  * @class Thumbnail
  * @author Matthew Duffy <mattduffy@gmail.com>
  */
@@ -36,16 +36,7 @@ class Thumbnail {
    * Create an instance of Thumbnail.
    * @summary Create an instance of Thumbnail.
    * @param { Object } config - An object literal contain configuration properties.
-   * @param { string } config.rootDir - A string path for the root directory for all albums.
-   * @param { string } config.albumId - A string of the unique album id.
-   * @param { string } config.albumDir - A string of the album file system path.
-   * @param { string } config.albumUrl - Path portion of public url for the album.
-   * @param { string } config.albumImageUrl - Path portion of the public href url from the album images.
-   * @param { string } config.albumName - The name of the album.
-   * @param { string } config.albumOwer - The name of the album owner.
-   * @param { Object[] } config.albumImages - An array of JSON objects, each describing an image.
-   * @param { Boolean } config.public - The visibilty status of the album.
-   * @param { Object } config.redis - An instance of a redis connection.
+   * @param { string } config.albumThumbnailPath - Path of the thumbnail image on the file system.
    * @param { string } config.dbName - A string with the db name if needed.
    * @param { Object } config.mongo - An instance of a mongoDB connection.
    * @param { Object } config.collection - A refernce to a mongoDB collection.
