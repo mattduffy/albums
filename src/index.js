@@ -569,6 +569,9 @@ class Album {
    * @param { string } [image.title] - The new title of the image.
    * @param { string } [image.description] - The new description of the image.
    * @param { string[] } [image.keywords] - An array of keywords for the image.
+   * @param { Object } [image.resize] - An object literal containing size to resize image to.
+   * @param { Number } [image.resize.w] - Resize width.
+   * @param { Number } [image.resize.h] - Resize height.
    * @return { Object|Boolean } - ...
    */
   async updateImage(image = null) {
@@ -598,6 +601,10 @@ class Album {
     }
     if (image?.keywords) {
       tagArray.push(`-MWG:Keywords="${image.keywords.join(', ')}"`)
+    }
+    if (image?.resize) {
+      // TODO: create resizeImage() method
+      // await this.resizeImage(image.resize)
     }
     const theImage = path.resolve(`${this.#albumDir}/${image.name}`)
     log(`The image to update: ${theImage}`)
@@ -652,7 +659,7 @@ class Album {
       const tempImagesArray = []
       const exiftool = await new Exiftool().init(this.#albumDir)
       exiftool.enableBinaryTagOutput(true)
-      this._metadata = await exiftool.getMetadata('', null, '-File:FileName -IPTC:ObjectName -MWG:all -preview:all')
+      this._metadata = await exiftool.getMetadata('', null, '-File:FileName -IPTC:ObjectName -MWG:all -preview:all -Composite:ImageSize')
       /* eslint-disable-next-line */
       for await (const img of this.#images) {
         const image = this._metadata.find((m) => m['File:FileName'] === img) ?? {}
@@ -683,6 +690,7 @@ class Album {
           tempImagesArray.push({
             name: img,
             url: imageUrl,
+            size: image?.['Composite:ImageSize'] ?? null,
             thumbnail: thumbUrl,
             title: image?.['IPTC:ObjectName'] ?? image?.['XMP:Title'],
             keywords: image?.['Composite:Keywords'] ?? [],
