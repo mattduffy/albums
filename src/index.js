@@ -21,6 +21,12 @@ const _info = Info.extend('album')
 const _warn = Warn.extend('album')
 const _error = _Error.extend('album')
 const ALBUMS = 'albums'
+const LANDSCAPE_BIG = '900x600'
+const LANDSCAPE_MED = '600x400'
+const LANDSCAPE_SML = '350x234'
+const PORTRAIT_BIG = '600x800'
+const PORTRAIT_MED = '475x533'
+const PORTRAIT_SML = '350x467'
 
 /**
  * A class to model the shape a properties of an album of items, usually photos.
@@ -690,7 +696,10 @@ class Album {
           tempImagesArray.push({
             name: img,
             url: imageUrl,
-            size: image?.['Composite:ImageSize'] ?? null,
+            big: imageUrl,
+            med: null,
+            sml: null,
+            // size: image?.['Composite:ImageSize'] ?? null,
             thumbnail: thumbUrl,
             title: image?.['IPTC:ObjectName'] ?? image?.['XMP:Title'],
             keywords: image?.['Composite:Keywords'] ?? [],
