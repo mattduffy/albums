@@ -21,12 +21,13 @@ const _info = Info.extend('album')
 const _warn = Warn.extend('album')
 const _error = _Error.extend('album')
 const ALBUMS = 'albums'
-const LANDSCAPE_BIG = '900x600'
-const LANDSCAPE_MED = '600x400'
-const LANDSCAPE_SML = '350x234'
-const PORTRAIT_BIG = '600x800'
-const PORTRAIT_MED = '475x533'
-const PORTRAIT_SML = '350x467'
+const LANDSCAPE_BIG = '900x900'
+const LANDSCAPE_MED = '600x600'
+const LANDSCAPE_SML = '350x350'
+const PORTRAIT_BIG = '600x600'
+const PORTRAIT_MED = '400x400'
+const PORTRAIT_SML = '350x350'
+const THUMBNAIL = '133x133'
 
 /**
  * A class to model the shape a properties of an album of items, usually photos.
