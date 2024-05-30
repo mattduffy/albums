@@ -6,6 +6,7 @@
 
 import path from 'node:path'
 import fs from 'node:fs/promises'
+import { Magick } from 'magickwand.js'
 import { Exiftool } from '@mattduffy/exiftool' // eslint-disable-line import/no-unresolved
 // import { Image } from './image.js'
 import { ObjectId } from '../lib/mongodb-client.js'
@@ -723,32 +724,96 @@ class Album {
    * @param { String } iamge - A string name value of an image to create a thumbnail of.
    * @return { String } thumbUrl - A string path value of the new thumbnail created.
    */
-  async generateThumbnail(image) {
-    const log = this.#log.extend('generateThumbnail')
-    const error = this.#error.extend('generateThumbnail')
+  async generateSizes(image) {
+    const log = this.#log.extend('generateSizes')
+    const error = this.#error.extend('generateSizes')
     const imageUrl = (this.#albumImageUrl) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${image}` : ''
     log(`imageUrl: ${imageUrl}`)
-    let thumbName
-    let thumbUrl
-    if (image?.['EXIF:ThumbnailImage']) {
-      // log('has thumbnail data')
-      const sourceParts = path.parse(imageUrl)
-      thumbName = `${sourceParts.name}_thumbnail${sourceParts.ext}`
-      const thumbPath = `${sourceParts.dir}/${thumbName}`
-      const fullThumbPath = path.resolve('public', thumbPath)
-      // log('thumb full path: ', fullThumbPath)
-      thumbUrl = `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${thumbName}`
-      log(`thumbUrl: ${thumbUrl} \n`)
-      const buffer = Buffer.from(image['EXIF:ThumbnailImage'].slice(7), 'base64')
+    let newJpegBig
+    let newJpegMed
+    let newJpegSml
+    let big
+    let med
+    let sml
+    let thb
+    let orientation
+    const magick = new Magick.Image()
+    const parts = path.parse(image)
+    log(parts)
+    const original = `${this.#albumDir}/${image}`
+    let format
+    try {
+      log(`opening ${original} in Image Magick`)
+      await magick.readAsync(original)
+      const geometry = await magick.sizeAsync()
+      if (geometry.width() > geometry.height()) {
+        orientation = 'landscape'
+        newJpegBig = `${parts.name}_${LANDSCAPE_BIG}.jpeg`
+        big = LANDSCAPE_BIG
+        newJpegMed = `${parts.name}_${LANDSCAPE_MED}.jpeg`
+        med = LANDSCAPE_MED
+        newJpegSml = `${parts.name}_${LANDSCAPE_SML}.jpeg`
+        sml = LANDSCAPE_SML
+      } else {
+        orientation = 'portrait'
+        newJpegBig = `${parts.name}_${PORTRAIT_BIG}.jpeg`
+        big = PORTRAIT_BIG
+        newJpegMed = `${parts.name}_${PORTRAIT_MED}.jpeg`
+        med = PORTRAIT_MED
+        newJpegSml = `${parts.name}_${PORTRAIT_SML}.jpeg`
+        sml = PORTRAIT_SML
+      }
+      thb = `${parts.name}_thumbnail.jpeg`
+      log(`Image geometry is: ${geometry.toString()}, ${orientation}`)
+    } catch (e) {
+      const msg = `Image Magick failed to open image: ${original}`
+      error(msg)
+      throw new Error(msg, { cause: e })
+    }
+    try {
+      format = await magick.magickAsync()
+      log(`Image file format: ${format}`)
+    } catch (e) {
+      const msg = 'Image Magick failed to get image file format.'
+      throw new Error(msg, { cause: e })
+    }
+    if (!['jpeg', 'jpg', 'png'].includes(format.toLowercase())) {
       try {
-        await fs.writeFile(fullThumbPath, buffer)
+        log('convert file format to JPEG')
+        await magick.magick('jpeg')
       } catch (e) {
-        error(`Failed to create thumbnail image for ${image.SourceFile}`)
-        error(`save path: ${fullThumbPath}`)
-        error(e)
+        const msg = 'image Magick failed to convert to JPEG.'
+        throw new Error(msg, { cause: e })
       }
     }
-    return thumbUrl
+    try {
+      const theImage = this.#images.find((i) => i.name === image)
+      log(`resizing to ${big}, ${orientation}`)
+      await magick.resizeAsync(big)
+      const b = path.join(this.#albumDir, newJpegBig)
+      await magick.writeAsync(b)
+      theImage.big = `${this.#albumImageUrl}${newJpegBig}`
+      log(`resizing to ${med}, ${orientation}`)
+      await magick.resizeAsync(med)
+      const m = path.join(this.#albumDir, newJpegMed)
+      await magick.writeAsync(m)
+      theImage.med = `${this.#albumImageUrl}${newJpegMed}`
+      log(`resizing to ${sml}, ${orientation}`)
+      await magick.resizeAsync(sml)
+      const s = path.join(sml, newJpegSml)
+      await magick.writeAsync(s)
+      theImage.sml = `${this.#albumImageUrl}${newJpegSml}`
+      if (!theImage.thumbnail) {
+        log(`creating thumbnail (${THUMBNAIL})`)
+        await magick.stripAsync()
+        await magick.resizeAsync(THUMBNAIL)
+        await magick.writeAsync(thb)
+        theImage.thb = `${this.#albumImageUrl}${thb}`
+      }
+    } catch (e) {
+      const msg = 'Imaged Magick failed to resize image.'
+      throw new Error(msg, { cause: e })
+    }
   }
 
   /**
