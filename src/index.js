@@ -222,6 +222,19 @@ class Album {
       throw new Error(msg, { cause: e })
     }
     try {
+      this.#images.forEach(async (img) => {
+        this.generateSizes(img.name)
+      })
+      log(`is album preview image set?: ${this.#albumPreviewImage}`)
+      if (!this.#albumPreviewImage) {
+        this.#albumPreviewImage = this.#images[0].thumbnail
+        log(`setting album preview image to: ${this.#albumPreviewImage}`)
+      }
+    } catch (e) {
+      const msg = 'Image Magick resising failed.'
+      throw new Error(msg, { cause: e })
+    }
+    try {
       if (!this.#albumJson) {
         this.#albumJson = await this.createAlbumJson()
       }
@@ -242,7 +255,7 @@ class Album {
   async removeFromRedisStream() {
     const log = _log.extend('removeFromRedisStream')
     const error = _error.extend('removeFromRedisStream')
-    if (this._albumPublic) {
+    if (!this._albumPublic) {
       return undefined
     }
     if (this.#streamId) {
@@ -268,19 +281,23 @@ class Album {
     const log = _log.extend('addToRedisStream')
     const error = _error.extend('addToRedisStream')
     if (!this.#redis) {
-      error('No redis connection provided.')
+      const msg = 'no redis connection provided'
+      error(msg)
+      error(msg)
       return false
     }
     if (!this.#albumId) {
       // only add albums with _id values to the redis stream
+      log('No #albumId was provided to add to redis stream')
       return false
     }
     if (!this._albumPublic) {
       // only add public albums to the redis stream
+      log('Album is not public, not added to redis stream.')
       return false
     }
     if (this.#streamId) {
-      // return true
+      log(`album already has a streamId: ${this.#streamId}, clear it and re-add.`)
       try {
         const clear = await this.#redis.xdel('albums:recent:10', this.#streamId)
         log(clear)
@@ -300,7 +317,6 @@ class Album {
         preview: this.#albumPreviewImage,
         description: this.#albumDescription,
       }
-      // await this.#redis.xadd('albums:recent:10', '*', 'album', 'id', `${this.#albumId}`, 'name', `${this.#albumName}`, 'owner', `${this.#albumOwner}`, 'access', `${this._albumPublic}`)
       response = await this.#redis.xadd('albums:recent:10', '*', 'album', JSON.stringify(entry))
       log('xadd response: ', response)
       this.#streamId = response
@@ -325,6 +341,18 @@ class Album {
     log(this.#albumDir)
     let deleted
     try {
+      log(`Redis streamId: ${this.#streamId}`)
+      const removed = await this.removeFromRedisStream()
+      log(`streamId: ${removed}`)
+      if (!removed) {
+        deleted = false
+      }
+    } catch (e) {
+      error(`failed to remove albumId ${this.#albumId}, streamId ${this.#streamId} from redis stream.`)
+      error(e)
+      deleted = false
+    }
+    try {
       deleted = await fs.rm(path.resolve(this.#albumDir), { force: true, recursive: true })
     } catch (e) {
       error(e)
@@ -338,16 +366,6 @@ class Album {
       }
     } catch (e) {
       error(`failed to remove albumId ${this.#albumId} from db.`)
-      error(e)
-      deleted = false
-    }
-    try {
-      const removed = await this.removeFromRedisStream()
-      if (!removed) {
-        deleted = false
-      }
-    } catch (e) {
-      error(`failed to remove albumId ${this.#albumId}, streamId ${this.#streamId} from redis stream.`)
       error(e)
       deleted = false
     }
@@ -377,6 +395,7 @@ class Album {
     let theId
     if (this.#newAlbum) {
       theId = new ObjectId()
+      this.#albumId = theId
     } else {
       theId = new ObjectId(this.#albumId)
     }
@@ -384,7 +403,7 @@ class Album {
     try {
       if (this._albumPublic) {
         const add = await this.addToRedisStream()
-        log(`album id: ${theId} was added to the redis recent10 stream.`, add)
+        log(`album id: ${theId} was added to the redis recent10 stream?`, add)
       } else {
         const remove = await this.removeFromRedisStream()
         log(`album id: ${theId} was removed from the redis recent10 stream.`, remove)
@@ -434,7 +453,7 @@ class Album {
     }
 
     // modifiedCount, upsertedCount, upsertedId
-    if (!saved?.insertedId || saved?.modifiedCount < 1) {
+    if (!saved?.insertedId || saved?.upsertedCount < 1 || saved?.modifiedCount < 1) {
       return false
     }
     if (!this.#albumId) {
@@ -717,14 +736,15 @@ class Album {
   }
 
   /**
-   * Generate a thumbnail for an image.
-   * @summary Generate a thumbnail for an image.
+   * Generate the various sizes plus a thumbnail for an image.
+   * @summary Generate the various sizes plus a thumbnail for an image.
    * @author Matthew Duffy <mattduffy@gmail.com>
    * @async
    * @param { String } iamge - A string name value of an image to create a thumbnail of.
-   * @return { String } thumbUrl - A string path value of the new thumbnail created.
+   * @return { undefined }
    */
-  async generateSizes(image) {
+  // async generateSizes(image) {
+  generateSizes(image) {
     const log = this.#log.extend('generateSizes')
     const error = this.#error.extend('generateSizes')
     const imageUrl = (this.#albumImageUrl) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${image}` : ''
@@ -744,8 +764,10 @@ class Album {
     let format
     try {
       log(`opening ${original} in Image Magick`)
-      await magick.readAsync(original)
-      const geometry = await magick.sizeAsync()
+      // await magick.readAsync(original)
+      magick.read(original)
+      // const geometry = await magick.sizeAsync()
+      const geometry = magick.size()
       if (geometry.width() > geometry.height()) {
         orientation = 'landscape'
         newJpegBig = `${parts.name}_${LANDSCAPE_BIG}.jpeg`
@@ -771,16 +793,18 @@ class Album {
       throw new Error(msg, { cause: e })
     }
     try {
-      format = await magick.magickAsync()
+      // format = await magick.magickAsync()
+      format = magick.magick()
       log(`Image file format: ${format}`)
     } catch (e) {
       const msg = 'Image Magick failed to get image file format.'
       throw new Error(msg, { cause: e })
     }
-    if (!['jpeg', 'jpg', 'png'].includes(format.toLowercase())) {
+    if (!['jpeg', 'jpg', 'png'].includes(format.toLowerCase())) {
       try {
         log('convert file format to JPEG')
-        await magick.magick('jpeg')
+        // await magick.magick('jpeg')
+        magick.magick('jpeg')
       } catch (e) {
         const msg = 'image Magick failed to convert to JPEG.'
         throw new Error(msg, { cause: e })
@@ -788,27 +812,46 @@ class Album {
     }
     try {
       const theImage = this.#images.find((i) => i.name === image)
+
       log(`resizing to ${big}, ${orientation}`)
-      await magick.resizeAsync(big)
+      // await magick.resizeAsync(big)
+      magick.resize(big)
       const b = path.join(this.#albumDir, newJpegBig)
-      await magick.writeAsync(b)
-      theImage.big = `${this.#albumImageUrl}${newJpegBig}`
+      log(b)
+      // await magick.writeAsync(b)
+      magick.write(b)
+      theImage.big = path.join(this.#albumImageUrl, newJpegBig)
+
       log(`resizing to ${med}, ${orientation}`)
-      await magick.resizeAsync(med)
+      // await magick.resizeAsync(med)
+      magick.resize(med)
       const m = path.join(this.#albumDir, newJpegMed)
-      await magick.writeAsync(m)
-      theImage.med = `${this.#albumImageUrl}${newJpegMed}`
+      log(m)
+      // await magick.writeAsync(m)
+      magick.write(m)
+      theImage.med = path.join(this.#albumImageUrl, newJpegMed)
+
       log(`resizing to ${sml}, ${orientation}`)
-      await magick.resizeAsync(sml)
-      const s = path.join(sml, newJpegSml)
-      await magick.writeAsync(s)
-      theImage.sml = `${this.#albumImageUrl}${newJpegSml}`
+      // await magick.resizeAsync(sml)
+      magick.resize(sml)
+      const s = path.join(this.#albumDir, newJpegSml)
+      log(s)
+      // await magick.writeAsync(s)
+      magick.write(s)
+      theImage.sml = path.join(this.#albumImageUrl, newJpegSml)
+
       if (!theImage.thumbnail) {
         log(`creating thumbnail (${THUMBNAIL})`)
-        await magick.stripAsync()
-        await magick.resizeAsync(THUMBNAIL)
-        await magick.writeAsync(thb)
-        theImage.thb = `${this.#albumImageUrl}${thb}`
+        // await magick.stripAsync()
+        // await magick.resizeAsync(THUMBNAIL)
+        // await magick.writeAsync(thb)
+        magick.strip()
+        magick.resize(THUMBNAIL)
+        const t = path.join(this.#albumDir, thb)
+        log(t)
+        magick.write(t)
+        // theImage.thb = path.join(this.#albumImageUrl, thb)
+        theImage.thumbnail = path.join(this.#albumImageUrl, thb)
       }
     } catch (e) {
       const msg = 'Imaged Magick failed to resize image.'
