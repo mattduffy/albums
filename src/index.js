@@ -453,7 +453,8 @@ class Album {
     }
 
     // modifiedCount, upsertedCount, upsertedId
-    if (!saved?.insertedId || saved?.upsertedCount < 1 || saved?.modifiedCount < 1) {
+    // if (!saved?.insertedId || saved?.upsertedCount < 1 || saved?.modifiedCount < 1) {
+    if (saved?.modifiedCount < 1 && saved?.upsertedCount < 1 && saved?.matchedCount < 1) {
       return false
     }
     if (!this.#albumId) {
