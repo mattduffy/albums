@@ -255,9 +255,9 @@ class Album {
   async removeFromRedisStream() {
     const log = _log.extend('removeFromRedisStream')
     const error = _error.extend('removeFromRedisStream')
-    if (!this._albumPublic) {
-      return undefined
-    }
+    // if (!this._albumPublic) {
+    //   return undefined
+    // }
     if (this.#streamId) {
       try {
         const response = await this.#redis.xdel('albums:recent:10', this.#streamId)
@@ -405,6 +405,7 @@ class Album {
         const add = await this.addToRedisStream()
         log(`album id: ${theId} was added to the redis recent10 stream?`, add)
       } else {
+        log(`album id: ${theId}, streamId: ${this.#streamId}`)
         const remove = await this.removeFromRedisStream()
         log(`album id: ${theId} was removed from the redis recent10 stream.`, remove)
       }
