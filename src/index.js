@@ -598,12 +598,15 @@ class Album {
    * @param { string } [image.title] - The new title of the image.
    * @param { string } [image.description] - The new description of the image.
    * @param { string[] } [image.keywords] - An array of keywords for the image.
+   * @param { Boolean } [image.hide] - Hide of show image in gallery.
    * @param { Object } [image.resize] - An object literal containing size to resize image to.
    * @param { Number } [image.resize.w] - Resize width.
    * @param { Number } [image.resize.h] - Resize height.
+   * @param { String } [image.rotate] - Rotate the image by the given number of degress.
+   * @param { Boolean } [remakeThumbs] - Force remaking thumbnail images.
    * @return { Object|Boolean } - ...
    */
-  async updateImage(image = null) {
+  async updateImage(image = null, remakeThumbs = false) {
     const log = _log.extend('updateImage')
     const error = _error.extend('updateImage')
     let exiftool
@@ -631,10 +634,6 @@ class Album {
     if (image?.keywords) {
       tagArray.push(`-MWG:Keywords="${image.keywords.join(', ')}"`)
     }
-    if (image?.resize) {
-      // TODO: create resizeImage() method
-      // await this.resizeImage(image.resize)
-    }
     const theImage = path.resolve(`${this.#albumDir}/${image.name}`)
     log(`The image to update: ${theImage}`)
     log(tagArray)
@@ -643,6 +642,7 @@ class Album {
       exiftool = await new Exiftool().init(theImage)
       exiftool.setOverwriteOriginal(true)
       result.metadata = await exiftool.writeMetadataToTag(tagArray)
+      delete result.metadata.command
       if (image?.title) {
         this.#images[index].title = image.title
       }
@@ -658,6 +658,37 @@ class Album {
       error(err)
       error(result)
       error(e)
+    }
+    this.#images[index].hide = image.hide
+    try {
+      if (image?.rotate) {
+        // TODO: create rotateImage(theOGImage, image.rotate) method
+        await this.rotateImage(theImage, image.rotate)
+      }
+    } catch (e) {
+      const msg = `Image Magick failed up rotate image: ${theImage}`
+      error(msg)
+      throw new Error(msg, { cause: e })
+    }
+    try {
+      if (image?.resize) {
+        // TODO: create resizeImage() method
+        // await this.resizeImage(image.resize)
+      }
+    } catch (e) {
+      const msg = `Image Magick failed up resize image: ${theImage}`
+      error(msg)
+      throw new Error(msg, { cause: e })
+    }
+    try {
+      // await this.generateSizes(theOGImage)
+      const sizes = this.generateSizes(image.name, remakeThumbs)
+      result.sizes = sizes
+      log(sizes)
+    } catch (e) {
+      const msg = `Image Magick failed to regenerate the image sizes for: ${image.name}`
+      error(msg)
+      throw new Error(msg, { cause: e })
     }
     try {
       result.save = await this.save()
@@ -742,11 +773,12 @@ class Album {
    * @summary Generate the various sizes plus a thumbnail for an image.
    * @author Matthew Duffy <mattduffy@gmail.com>
    * @async
-   * @param { String } iamge - A string name value of an image to create a thumbnail of.
+   * @param { String } image - A string name value of an image to create a thumbnail of.
+   * @param { Boolean } remakeThumbs - If true, force remaking thumbnail images.
    * @return { undefined }
    */
-  // async generateSizes(image) {
-  generateSizes(image) {
+  // async generateSizes(image, remakeThumbs) {
+  generateSizes(image, remakeThumbs) {
     const log = this.#log.extend('generateSizes')
     const error = this.#error.extend('generateSizes')
     const imageUrl = (this.#albumImageUrl) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${image}` : ''
@@ -842,22 +874,60 @@ class Album {
       magick.write(s)
       theImage.sml = path.join(this.#albumImageUrl, newJpegSml)
 
-      if (!theImage.thumbnail) {
+      if (!theImage.thumbnail || remakeThumbs) {
         log(`creating thumbnail (${THUMBNAIL})`)
         // await magick.stripAsync()
         // await magick.resizeAsync(THUMBNAIL)
-        // await magick.writeAsync(thb)
         magick.strip()
         magick.resize(THUMBNAIL)
         const t = path.join(this.#albumDir, thb)
         log(t)
         magick.write(t)
-        // theImage.thb = path.join(this.#albumImageUrl, thb)
+        // await magick.writeAsync(t)
         theImage.thumbnail = path.join(this.#albumImageUrl, thb)
+      }
+      return {
+        big: theImage.big,
+        med: theImage.med,
+        sml: theImage.sml,
+        thb: theImage.thumbnail,
       }
     } catch (e) {
       const msg = 'Imaged Magick failed to resize image.'
       throw new Error(msg, { cause: e })
+    }
+  }
+
+  /**
+   * Rotate an image by the given number of degrees.
+   * @summary Rotate an image by the given number of degrees.
+   * @author Matthew Duffy <mattduffy@gmail.com>
+   * @async
+   * @param { String } imageName - The name of the image to be rotated.
+   * @param { Number } degrees - The number of degrees to rotate the image, counter-clockwise.
+   * @return { undefined }
+   */
+  async rotateImage(imageName, degrees) {
+    const log = this.#log.extend('rotateImage')
+    const error = this.#error.extend('rotateImage')
+    const imagePath = imageName
+    log(`imagePath: ${imagePath}`)
+    const magick = new Magick.Image()
+    try {
+      await magick.read(imagePath)
+    } catch (e) {
+      const err = `Image Magick failed to open image: ${imagePath}`
+      error(err)
+      throw new Error(err, { cause: e })
+    }
+    try {
+      const rotated = await magick.rotateAsync(Number.parseInt(degrees, 10))
+      await magick.writeAsync(imagePath)
+      log(`Image Magick rotated ${imagePath} by ${degrees} degrees (${rotated}`)
+    } catch (e) {
+      const err = `Image Magick failed to rotate ${degrees} deg image: ${imagePath}`
+      error(err)
+      throw new Error(err, { cause: e })
     }
   }
 
