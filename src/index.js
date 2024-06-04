@@ -816,22 +816,22 @@ class Album {
       const geometry = magick.size()
       if (geometry.width() > geometry.height()) {
         orientation = 'landscape'
-        newJpegBig = `${parts.name}_${LANDSCAPE_BIG}.jpeg`
+        newJpegBig = `${parts.name}_${LANDSCAPE_BIG}.jpg`
         big = LANDSCAPE_BIG
-        newJpegMed = `${parts.name}_${LANDSCAPE_MED}.jpeg`
+        newJpegMed = `${parts.name}_${LANDSCAPE_MED}.jpg`
         med = LANDSCAPE_MED
-        newJpegSml = `${parts.name}_${LANDSCAPE_SML}.jpeg`
+        newJpegSml = `${parts.name}_${LANDSCAPE_SML}.jpg`
         sml = LANDSCAPE_SML
       } else {
         orientation = 'portrait'
-        newJpegBig = `${parts.name}_${PORTRAIT_BIG}.jpeg`
+        newJpegBig = `${parts.name}_${PORTRAIT_BIG}.jpg`
         big = PORTRAIT_BIG
-        newJpegMed = `${parts.name}_${PORTRAIT_MED}.jpeg`
+        newJpegMed = `${parts.name}_${PORTRAIT_MED}.jpg`
         med = PORTRAIT_MED
-        newJpegSml = `${parts.name}_${PORTRAIT_SML}.jpeg`
+        newJpegSml = `${parts.name}_${PORTRAIT_SML}.jpg`
         sml = PORTRAIT_SML
       }
-      thb = `${parts.name}_thumbnail.jpeg`
+      thb = `${parts.name}_thumbnail.jpg`
       log(`Image geometry is: ${geometry.toString()}, ${orientation}`)
     } catch (e) {
       const msg = `Image Magick failed to open image: ${original}`
@@ -849,8 +849,8 @@ class Album {
     if (!['jpeg', 'jpg', 'png'].includes(format.toLowerCase())) {
       try {
         log('convert file format to JPEG')
-        // await magick.magick('jpeg')
-        magick.magick('jpeg')
+        // await magick.magick('jpg')
+        magick.magick('jpg')
       } catch (e) {
         const msg = 'image Magick failed to convert to JPEG.'
         throw new Error(msg, { cause: e })
