@@ -609,8 +609,9 @@ class Album {
   async updateImage(image = null, remakeThumbs = false) {
     const log = _log.extend('updateImage')
     const error = _error.extend('updateImage')
-    let exiftool
     const result = {}
+    let newThumbs = false
+    let exiftool
     log(image)
     if (!image) {
       result.error = 'Missing required parameter: image.'
@@ -624,11 +625,11 @@ class Album {
       return result
     }
     const tagArray = []
-    if (image?.title !== '') {
+    if (image?.title) {
       tagArray.push(`-XMP:Title="${image.title}"`)
       tagArray.push(`-IPTC:ObjectName="${image.title}"`)
     }
-    if (image?.description !== '') {
+    if (image?.description) {
       tagArray.push(`-MWG:Description="${image.description}"`)
     }
     if (image?.keywords) {
@@ -636,37 +637,43 @@ class Album {
     }
     const theImage = path.resolve(`${this.#albumDir}/${image.name}`)
     log(`The image to update: ${theImage}`)
-    log(tagArray)
-    log(tagArray.join(' '))
-    try {
-      exiftool = await new Exiftool().init(theImage)
-      exiftool.setOverwriteOriginal(true)
-      result.metadata = await exiftool.writeMetadataToTag(tagArray)
-      delete result.metadata.command
-      if (image?.title) {
-        this.#images[index].title = image.title
+    log('tags to be updated:', tagArray)
+    // If no tagArray is empty, no metadata update necessary
+    if (tagArray.length < 0) {
+      // log(tagArray.join(' '))
+      try {
+        exiftool = await new Exiftool().init(theImage)
+        exiftool.setOverwriteOriginal(true)
+        result.metadata = await exiftool.writeMetadataToTag(tagArray)
+        delete result.metadata.command
+        if (image?.title) {
+          this.#images[index].title = image.title
+        }
+        if (image?.description) {
+          this.#images[index].description = image.description
+        }
+        if (image?.keywords) {
+          this.#images[index].keywords = image.keywords
+        }
+        newThumbs = true
+      } catch (e) {
+        const err = `Failed to update metadata for image: ${theImage}`
+        result.error = err
+        error(err)
+        error(result)
+        error(e)
       }
-      if (image?.description) {
-        this.#images[index].description = image.description
-      }
-      if (image?.keywords) {
-        this.#images[index].keywords = image.keywords
-      }
-    } catch (e) {
-      const err = `Failed to update metadata for image: ${theImage}`
-      result.error = err
-      error(err)
-      error(result)
-      error(e)
     }
     this.#images[index].hide = image.hide
     try {
       if (image?.rotate) {
-        // TODO: create rotateImage(theOGImage, image.rotate) method
         await this.rotateImage(theImage, image.rotate)
+        // this.rotateImage(theImage, image.rotate)
+        newThumbs = true
       }
     } catch (e) {
-      const msg = `Image Magick failed up rotate image: ${theImage}`
+      error(e.message)
+      const msg = `Image Magick failed to rotate image: ${theImage}`
       error(msg)
       throw new Error(msg, { cause: e })
     }
@@ -674,6 +681,7 @@ class Album {
       if (image?.resize) {
         // TODO: create resizeImage() method
         // await this.resizeImage(image.resize)
+        // newThumbs = true // maybe
       }
     } catch (e) {
       const msg = `Image Magick failed up resize image: ${theImage}`
@@ -681,10 +689,13 @@ class Album {
       throw new Error(msg, { cause: e })
     }
     try {
-      // await this.generateSizes(theOGImage)
-      const sizes = this.generateSizes(image.name, remakeThumbs)
-      result.sizes = sizes
-      log(sizes)
+      log(`remakeThumbs: ${remakeThumbs}, newThumbs: ${newThumbs}`)
+      if (remakeThumbs || newThumbs) {
+        // await this.generateSizes(theOGImage)
+        const sizes = this.generateSizes(image.name, remakeThumbs)
+        result.sizes = sizes
+        log(sizes)
+      }
     } catch (e) {
       const msg = `Image Magick failed to regenerate the image sizes for: ${image.name}`
       error(msg)
@@ -759,6 +770,7 @@ class Album {
             keywords: image?.['Composite:Keywords'] ?? [],
             description: image?.['Composite:Description'],
             creator: image?.['Composite:Creator'] ?? this.#albumOwner,
+            hide: false,
           })
           log('tempImagesArray: %o', tempImagesArray)
         }
@@ -912,20 +924,31 @@ class Album {
     const error = this.#error.extend('rotateImage')
     const imagePath = imageName
     log(`imagePath: ${imagePath}`)
+    const deg = Number.parseInt(degrees, 10)
+    log(`typeof deg: ${typeof deg}, value: ${deg}`)
     const magick = new Magick.Image()
     try {
-      await magick.read(imagePath)
+      await magick.readAsync(imagePath)
+      // magick.read(imagePath)
     } catch (e) {
-      const err = `Image Magick failed to open image: ${imagePath}`
+      const err = `magick.readAsync(${imagePath}) failed to open image.`
       error(err)
       throw new Error(err, { cause: e })
     }
     try {
-      const rotated = await magick.rotateAsync(Number.parseInt(degrees, 10))
-      await magick.writeAsync(imagePath)
-      log(`Image Magick rotated ${imagePath} by ${degrees} degrees (${rotated}`)
+      const rotated = await magick.rotateAsync(deg)
+      // const rotated = magick.rotate(Number.parseInt(deg, 10))
+      log(`Image Magick rotated ${imagePath} by ${deg} degrees (${rotated})`)
     } catch (e) {
-      const err = `Image Magick failed to rotate ${degrees} deg image: ${imagePath}`
+      const err = `magick.rotateAsync(${deg}) failed to rotate ${deg} deg image: ${imagePath}`
+      error(err)
+      throw new Error(err, { cause: e })
+    }
+    try {
+      await magick.writeAsync(imagePath)
+      // magick.write(imagePath)
+    } catch (e) {
+      const err = `magick.writeAsync(${imagePath}) failed to save rotated image.`
       error(err)
       throw new Error(err, { cause: e })
     }
