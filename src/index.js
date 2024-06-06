@@ -223,7 +223,7 @@ class Album {
     }
     try {
       this.#images.forEach(async (img) => {
-        this.generateSizes(img.name)
+        await this.generateSizes(img.name)
       })
       log(`is album preview image set?: ${this.#albumPreviewImage}`)
       if (!this.#albumPreviewImage) {
@@ -589,6 +589,110 @@ class Album {
   }
 
   /**
+   * Add a new image to the gallery.
+   * @summary Add a new image to the gallery.
+   * @author Matthew Duffy <mattduffy@gmail.com>
+   * @async
+   * @param { Object } newImage - An object containing new image to be added to the gallery.
+   * @param { String } newImage.name - The name of the new image.
+   * @throws { Error } - Throws an error for any async method.
+   * @return { Object } result - Details of new image, sizes, urls, etc.
+   */
+  async addImage(newImage) {
+    const log = _log.extend('newImage')
+    const error = _error.extend('newImage')
+    const result = {}
+    log(`Adding new image to the gallery: ${newImage}`)
+    if (!newImage) {
+      const err = 'Missing required image.'
+      error(err)
+      return false
+    }
+    let exiftool
+    let metadata
+    let image
+    try {
+      exiftool = await new Exiftool().init(newImage)
+    } catch (e) {
+      error(`Failed to init exiftool with ${newImage}`)
+      error(e)
+    }
+    try {
+      exiftool.enableBinaryTagOutput(true)
+      metadata = await exiftool.getMetadata('', null, '-File:FileName -IPTC:ObjectName -MWG:all -preview:all -Composite:ImageSize')
+      log(metadata);
+      [image] = metadata
+    } catch (e) {
+      const err = `Failed to get metadata for  ${newImage}`
+      error(err)
+      error(e)
+      throw new Error(err, { cause: e })
+    }
+    const img = image['File:FileName']
+    const imageUrl = (this.#albumImageUrl) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${img}` : ''
+    let thumbName
+    let thumbUrl
+    if (image?.['EXIF:ThumbnailImage']) {
+      const sourceParts = path.parse(imageUrl)
+      thumbName = `${sourceParts.name}_thumbnail${sourceParts.ext}`
+      const thumbPath = `${sourceParts.dir}/${thumbName}`
+      const fullThumbPath = path.resolve('public', thumbPath)
+      // log('thumb full path: ', fullThumbPath)
+      thumbUrl = `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${thumbName}`
+      log(`thumbUrl: ${thumbUrl} \n`)
+      const buffer = Buffer.from(image['EXIF:ThumbnailImage'].slice(7), 'base64')
+      try {
+        await fs.writeFile(fullThumbPath, buffer)
+      } catch (e) {
+        const err = `Failed to create thumbnail image for ${image.SourceFile}\n`
+                  + `save path: ${fullThumbPath}`
+        error(err)
+        error(e)
+        throw new Error(err, { cause: e })
+      }
+    }
+    const tempImage = {
+      name: img,
+      url: imageUrl,
+      big: null,
+      med: null,
+      sml: null,
+      thumbnail: thumbUrl,
+      title: image?.['IPTC:ObjectName'] ?? image?.['XMP:Title'],
+      keywords: image?.['Composite:Keywords'] ?? [],
+      description: image?.['Composite:Description'],
+      creator: image?.['Composite:Creator'] ?? this.#albumOwner,
+      hide: false,
+    }
+    log('tempImage: %o', tempImage)
+    this.#images.push(tempImage)
+    let makeThumb = false
+    if (!tempImage.thumbnail) {
+      makeThumb = true
+    }
+    let sizes
+    try {
+      sizes = await this.generateSizes(img, makeThumb)
+      result.sizes = sizes
+    } catch (e) {
+      const err = `Failed to create image sizes for ${newImage}`
+      error(err)
+      error(e)
+      throw new Error(err, { cause: e })
+    }
+    try {
+      await this.save()
+    } catch (e) {
+      const err = `Failed to save changes to gallery after adding ${img}`
+      error(err)
+      error(e)
+      throw new Error(err, { cause: e })
+    }
+    log(result)
+    return result
+  }
+
+  /**
    * Update saved details about an image, including committing changes into metadata.
    * @summary Update saved details about an image, including committing changes into metadata.
    * @author Matthew Duffy <mattduffy@gmail.com>
@@ -691,8 +795,8 @@ class Album {
     try {
       log(`remakeThumbs: ${remakeThumbs}, newThumbs: ${newThumbs}`)
       if (remakeThumbs || newThumbs) {
-        // await this.generateSizes(theOGImage)
-        const sizes = this.generateSizes(image.name, remakeThumbs)
+        const sizes = await this.generateSizes(image.name, remakeThumbs)
+        // const sizes = this.generateSizes(image.name, remakeThumbs)
         result.sizes = sizes
         log(sizes)
       }
@@ -789,8 +893,8 @@ class Album {
    * @param { Boolean } remakeThumbs - If true, force remaking thumbnail images.
    * @return { undefined }
    */
-  // async generateSizes(image, remakeThumbs) {
-  generateSizes(image, remakeThumbs) {
+  async generateSizes(image, remakeThumbs) {
+  // generateSizes(image, remakeThumbs) {
     const log = this.#log.extend('generateSizes')
     const error = this.#error.extend('generateSizes')
     const imageUrl = (this.#albumImageUrl) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${image}` : ''
@@ -810,8 +914,8 @@ class Album {
     let format
     try {
       log(`opening ${original} in Image Magick`)
-      // await magick.readAsync(original)
-      magick.read(original)
+      await magick.readAsync(original)
+      // magick.read(original)
       // const geometry = await magick.sizeAsync()
       const geometry = magick.size()
       if (geometry.width() > geometry.height()) {
@@ -848,65 +952,117 @@ class Album {
     }
     if (!['jpeg', 'jpg', 'png'].includes(format.toLowerCase())) {
       try {
-        log('convert file format to JPEG')
-        // await magick.magick('jpg')
-        magick.magick('jpg')
+        log('convert file format to JPG')
+        await magick.magick('jpg')
+        // magick.magick('jpg')
       } catch (e) {
-        const msg = 'image Magick failed to convert to JPEG.'
+        const msg = 'image Magick failed to convert to JPG.'
         throw new Error(msg, { cause: e })
       }
     }
+    const theImage = this.#images.find((i) => i.name === image)
+    log('theImage: ', theImage)
+    let b
     try {
-      const theImage = this.#images.find((i) => i.name === image)
-
       log(`resizing to ${big}, ${orientation}`)
-      // await magick.resizeAsync(big)
-      magick.resize(big)
-      const b = path.join(this.#albumDir, newJpegBig)
-      log(b)
-      // await magick.writeAsync(b)
-      magick.write(b)
-      theImage.big = path.join(this.#albumImageUrl, newJpegBig)
-
-      log(`resizing to ${med}, ${orientation}`)
-      // await magick.resizeAsync(med)
-      magick.resize(med)
-      const m = path.join(this.#albumDir, newJpegMed)
-      log(m)
-      // await magick.writeAsync(m)
-      magick.write(m)
-      theImage.med = path.join(this.#albumImageUrl, newJpegMed)
-
-      log(`resizing to ${sml}, ${orientation}`)
-      // await magick.resizeAsync(sml)
-      magick.resize(sml)
-      const s = path.join(this.#albumDir, newJpegSml)
-      log(s)
-      // await magick.writeAsync(s)
-      magick.write(s)
-      theImage.sml = path.join(this.#albumImageUrl, newJpegSml)
-
-      if (!theImage.thumbnail || remakeThumbs) {
-        log(`creating thumbnail (${THUMBNAIL})`)
-        // await magick.stripAsync()
-        // await magick.resizeAsync(THUMBNAIL)
-        magick.strip()
-        magick.resize(THUMBNAIL)
-        const t = path.join(this.#albumDir, thb)
-        log(t)
-        magick.write(t)
-        // await magick.writeAsync(t)
-        theImage.thumbnail = path.join(this.#albumImageUrl, thb)
-      }
-      return {
-        big: theImage.big,
-        med: theImage.med,
-        sml: theImage.sml,
-        thb: theImage.thumbnail,
-      }
+      await magick.resizeAsync(big)
+      // magick.resize(big)
     } catch (e) {
-      const msg = 'Imaged Magick failed to resize image.'
+      const msg = `Imaged Magick failed to resize (${big}) ${b}.`
+      error(msg)
+      error(e)
       throw new Error(msg, { cause: e })
+    }
+    try {
+      b = path.join(this.#albumDir, newJpegBig)
+      log('b: ', b)
+      await magick.writeAsync(b)
+      // magick.write(b)
+      theImage.big = path.join(this.#albumImageUrl, newJpegBig)
+    } catch (e) {
+      const msg = `Imaged Magick failed to save ${b}.`
+      error(msg)
+      error(e)
+      throw new Error(msg, { cause: e })
+    }
+    let m
+    try {
+      log(`resizing to ${med}, ${orientation}`)
+      await magick.resizeAsync(med)
+      // magick.resize(med)
+    } catch (e) {
+      const msg = `Imaged Magick failed to resize (${med}) ${m}.`
+      error(msg)
+      error(e)
+      throw new Error(msg, { cause: e })
+    }
+    try {
+      m = path.join(this.#albumDir, newJpegMed)
+      log('m: ', m)
+      await magick.writeAsync(m)
+      // magick.write(m)
+      theImage.med = path.join(this.#albumImageUrl, newJpegMed)
+    } catch (e) {
+      const msg = `Imaged Magick failed to save ${m}.`
+      error(msg)
+      error(e)
+      throw new Error(msg, { cause: e })
+    }
+    let s
+    try {
+      log(`resizing to ${sml}, ${orientation}`)
+      await magick.resizeAsync(sml)
+      // magick.resize(sml)
+    } catch (e) {
+      const msg = `Imaged Magick failed to resize (${sml}) ${s}.`
+      error(msg)
+      error(e)
+      throw new Error(msg, { cause: e })
+    }
+    try {
+      s = path.join(this.#albumDir, newJpegSml)
+      log('s: ', s)
+      await magick.writeAsync(s)
+      // magick.write(s)
+      theImage.sml = path.join(this.#albumImageUrl, newJpegSml)
+    } catch (e) {
+      const msg = `Imaged Magick failed to save ${s}.`
+      error(msg)
+      error(e)
+      throw new Error(msg, { cause: e })
+    }
+    if (!theImage.thumbnail || remakeThumbs) {
+      let t
+      try {
+        log(`creating thumbnail (${THUMBNAIL})`)
+        await magick.stripAsync()
+        await magick.resizeAsync(THUMBNAIL)
+        // agick.strip()
+        // agick.resize(THUMBNAIL)
+      } catch (e) {
+        const msg = `Imaged Magick failed to resize (${THUMBNAIL}) ${t}.`
+        error(msg)
+        error(e)
+        throw new Error(msg, { cause: e })
+      }
+      try {
+        t = path.join(this.#albumDir, thb)
+        log('t: ', t)
+        // magick.write(t)
+        await magick.writeAsync(t)
+        theImage.thumbnail = path.join(this.#albumImageUrl, thb)
+      } catch (e) {
+        const msg = `Imaged Magick failed to save ${t}.`
+        error(msg)
+        error(e)
+        throw new Error(msg, { cause: e })
+      }
+    }
+    return {
+      big: theImage.big,
+      med: theImage.med,
+      sml: theImage.sml,
+      thb: theImage.thumbnail,
     }
   }
 
