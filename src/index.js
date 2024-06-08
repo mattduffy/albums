@@ -721,6 +721,16 @@ class Album {
         throw new Error(err, { cause: e })
       }
     }
+    let keywords
+    log('keywords array? ', Array.isArray(image?.['Composite:Keywords']))
+    if (image?.['Composite:Keywords']) {
+      if (Array.isArray(image['Composite:Keywords'])) {
+        keywords = image['Composite:Keywords']
+      } else {
+        keywords = [image['Composite:Keywords']]
+      }
+    }
+    log('keywords array? ', Array.isArray(keywords))
     const tempImage = {
       name: img,
       url: imageUrl,
@@ -729,12 +739,16 @@ class Album {
       sml: null,
       thumbnail: thumbUrl,
       title: image?.['IPTC:ObjectName'] ?? image?.['XMP:Title'],
-      keywords: image?.['Composite:Keywords'] ?? [],
+      // keywords: image?.['Composite:Keywords'] ?? [],
+      keywords: keywords ?? [],
       description: image?.['Composite:Description'],
       creator: image?.['Composite:Creator'] ?? this.#albumOwner,
       hide: false,
     }
     log('tempImage: %o', tempImage)
+    result.title = tempImage.title
+    result.keywords = tempImage.keywords
+    result.description = tempImage.description
     this.#images.push(tempImage)
     let makeThumb = false
     if (!tempImage.thumbnail) {
@@ -1159,6 +1173,7 @@ class Album {
     } catch (e) {
       const err = `magick.readAsync(${imagePath}) failed to open image.`
       error(err)
+      error(e)
       throw new Error(err, { cause: e })
     }
     try {
@@ -1168,14 +1183,20 @@ class Album {
     } catch (e) {
       const err = `magick.rotateAsync(${deg}) failed to rotate ${deg} deg image: ${imagePath}`
       error(err)
+      error(e)
       throw new Error(err, { cause: e })
     }
     try {
+      // TODO: something, something, something... dark siiiiiide...
+      // magickwand.js can't encode (save) .HEIC files... so this causes
+      // rotating image form widget to fail if original file is .HEIC
+      // Need to think of something to do here.
       await magick.writeAsync(imagePath)
       // magick.write(imagePath)
     } catch (e) {
       const err = `magick.writeAsync(${imagePath}) failed to save rotated image.`
       error(err)
+      error(e)
       throw new Error(err, { cause: e })
     }
   }
