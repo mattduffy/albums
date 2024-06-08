@@ -328,6 +328,76 @@ class Album {
   }
 
   /**
+   * Delete an image.
+   * @summary Delete an image.
+   * @author Matthew Duffy <mattduffy@gmail.com>
+   * @async
+   * @param { String } imageName=null - The name of the image to delete from the album.
+   * @throws { Error } Throws an Error if imageName parameter is not provided.
+   * @return { Boolean }
+   */
+  async deleteImage(imageName = null) {
+    const log = _log.extend('deleteImage')
+    const error = _error.extend('deleteImage')
+    if (!imageName) {
+      const err = 'Missing required image name parameter.'
+      error(err)
+      throw new Error(err)
+    }
+    let deleted = false
+    let index
+    const image = this.#images.find((i, x) => {
+      if (i.name === imageName) {
+        index = x
+        return true
+      }
+      return false
+    })
+    if (image) {
+      const parts = path.parse(imageName)
+      const imageStar = `${parts.name}*`
+      let imagePath
+      // const imagePath = path.join(this.#albumDir, imageStar)
+      // log(imagePath)
+      let files
+      const re = new RegExp(imageStar)
+      try {
+        files = await fs.readdir(this.#albumDir)
+      } catch (e) {
+        error(e)
+        throw new Error('readdir failed', { cause: e })
+      }
+      try {
+        await files
+          .filter((file) => re.test(file))
+          .forEach(async (file) => {
+            imagePath = path.join(this.#albumDir, file)
+            log(`about to delete ${imagePath}`)
+            deleted = (await fs.rm(imagePath) === undefined)
+            log(`Image ${imagePath} was deleted? ${deleted}`)
+          })
+      } catch (e) {
+        const err = `Failed to delete image file ${imageName}`
+        error(err)
+        error(e)
+        throw new Error(err, { cause: e })
+      }
+      try {
+        this.#images.splice(index, 1)
+        const saved = await this.save()
+        if (!saved) {
+          throw new Error('Save() failed, but did not cause an exception.')
+        }
+      } catch (e) {
+        const err = 'Image deleted, but failed to update gallery in db.'
+        error(err)
+        throw new Error(err, { cause: e })
+      }
+    }
+    return deleted
+  }
+
+  /**
    * Delete the album.
    * @summary Delete the album.
    * @author Matthew Duffy <mattduffy@gmail.com>
