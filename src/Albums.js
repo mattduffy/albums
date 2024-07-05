@@ -40,11 +40,18 @@ class Albums {
       console.log('Collection is already set: ', mongo.collectionName)
       collection = mongo
     }
-    const found = await collection.findOne({ _id: new ObjectId(id) })
-    console.log(found.keywords)
-    found.collection = collection
-    found.redis = redis
-    return new Album(found)
+    let found
+    try {
+      found = await collection.findOne({ _id: new ObjectId(id) })
+      console.log(found.keywords)
+      found.collection = collection
+      found.redis = redis
+      return new Album(found)
+    } catch (e) {
+      console.error(`Failed to find album by id: ${id}`)
+      console.error(e)
+      return false
+    }
   }
 
   /*

@@ -825,14 +825,14 @@ class Album {
     }
     const theImage = path.resolve(`${this.#albumDir}/${image.name}`)
     log(`The image to update: ${theImage}`)
-    log('tags to be updated:', tagArray)
-    // If no tagArray is empty, no metadata update necessary
-    if (tagArray.length < 0) {
-      // log(tagArray.join(' '))
+    // If tagArray is empty, no metadata update necessary
+    if (tagArray.length > 0) {
+      log('tags to be updated:', tagArray)
       try {
         exiftool = await new Exiftool().init(theImage)
         exiftool.setOverwriteOriginal(true)
         result.metadata = await exiftool.writeMetadataToTag(tagArray)
+        log(result)
         delete result.metadata.command
         if (image?.title) {
           this.#images[index].title = image.title
@@ -842,6 +842,9 @@ class Album {
         }
         if (image?.keywords) {
           this.#images[index].keywords = image.keywords
+        }
+        if (image?.hide !== undefined) {
+          this.#images[index].hide = image.hide
         }
         newThumbs = true
       } catch (e) {
