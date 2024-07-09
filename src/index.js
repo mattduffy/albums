@@ -790,7 +790,8 @@ class Album {
    * @param { Object } [image.resize] - An object literal containing size to resize image to.
    * @param { Number } [image.resize.w] - Resize width.
    * @param { Number } [image.resize.h] - Resize height.
-   * @param { String } [image.rotate] - Rotate the image by the given number of degress.
+   * @param { String } [image.rotateFullSize] - Rotate the full size image by the given number of degress.
+   * @param { String } [image.rotateThumbnail] - Rotate the image thumbnail by the given number of degress.
    * @param { Boolean } [remakeThumbs] - Force remaking thumbnail images.
    * @return { Object|Boolean } - ...
    */
@@ -857,9 +858,8 @@ class Album {
     }
     this.#images[index].hide = image.hide
     try {
-      if (image?.rotate) {
-        await this.rotateImage(theImage, image.rotate)
-        // this.rotateImage(theImage, image.rotate)
+      if (image?.rotateFullSize) {
+        await this.rotateImage(theImage, image.rotateFullSize)
         newThumbs = true
       }
     } catch (e) {
@@ -909,7 +909,7 @@ class Album {
    * @summary Extract the metadata from the images in the album.
    * @author Matthew Duffy <mattduffy@gmail.com>
    * @async
-   * @return { Oject|Boolean } - The extracted metadata in JSON format, or false if no images found.
+   * @return { Object|Boolean } - The extracted metadata in JSON format, or false if no images found.
    */
   async getMetadata() {
     const log = _log.extend('getMetadata')
@@ -1158,16 +1158,17 @@ class Album {
    * @summary Rotate an image by the given number of degrees.
    * @author Matthew Duffy <mattduffy@gmail.com>
    * @async
-   * @param { String } imageName - The name of the image to be rotated.
-   * @param { Number } degrees - The number of degrees to rotate the image, counter-clockwise.
+   * @param { String } i - The name of the image to be rotated.
+   * @param { Number } d - The number of degrees to rotate the image, counter-clockwise.
+   * @throws { Error } Throws an error if Image Magick fails to rotate the image.
    * @return { undefined }
    */
-  async rotateImage(imageName, degrees) {
+  async rotateImage(i, d) {
     const log = this.#log.extend('rotateImage')
     const error = this.#error.extend('rotateImage')
-    const imagePath = imageName
+    const imagePath = i
     log(`imagePath: ${imagePath}`)
-    const deg = Number.parseInt(degrees, 10)
+    const deg = Number.parseInt(d, 10)
     log(`typeof deg: ${typeof deg}, value: ${deg}`)
     const magick = new Magick.Image()
     try {
