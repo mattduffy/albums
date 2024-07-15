@@ -800,7 +800,8 @@ class Album {
     const error = _error.extend('updateImage')
     const result = {}
     let newThumbs = false
-    let exiftool
+    let embedThumbs = false
+    let exiftool = new Exiftool()
     log(image)
     if (!image) {
       result.error = 'Missing required parameter: image.'
@@ -825,12 +826,19 @@ class Album {
       tagArray.push(`-MWG:Keywords="${image.keywords.join(', ')}"`)
     }
     const theImage = path.resolve(`${this.#albumDir}/${image.name}`)
-    log(`The image to update: ${theImage}`)
-    // If tagArray is empty, no metadata update necessary
+    log(`The image to update:     ${theImage}`)
+    const parsedName = path.parse(image.name)
+    const theThumb = path.resolve(`${this.#albumDir}/${parsedName.name}_thumbnail${parsedName.ext}`)
+    log(`The thumbnail to update: ${theThumb}`)
+    try {
+      exiftool = await exiftool.init(theImage)
+    } catch (e) {
+      error(e)
+      throw new Error('failed to init exiftool', { cause: e })
+    }
     if (tagArray.length > 0) {
       log('tags to be updated:', tagArray)
       try {
-        exiftool = await new Exiftool().init(theImage)
         exiftool.setOverwriteOriginal(true)
         result.metadata = await exiftool.writeMetadataToTag(tagArray)
         log(result)
@@ -847,7 +855,7 @@ class Album {
         if (image?.hide !== undefined) {
           this.#images[index].hide = image.hide
         }
-        newThumbs = true
+        newThumbs = false
       } catch (e) {
         const err = `Failed to update metadata for image: ${theImage}`
         result.error = err
@@ -857,40 +865,82 @@ class Album {
       }
     }
     this.#images[index].hide = image.hide
-    try {
-      if (image?.rotateFullSize) {
+    if (image?.rotateFullSize) {
+      log(`about to rotate full size image by ${image.rotateFillSize} degrees.`)
+      try {
         await this.rotateImage(theImage, image.rotateFullSize)
-        newThumbs = true
+        // newThumbs = true
+        // embedThumbs = true
+      } catch (e) {
+        error(e.message)
+        const msg = `Image Magick failed to rotate image: ${theImage} ${image.rotateFullSize} deg`
+        error(msg)
+        throw new Error(msg, { cause: e })
       }
-    } catch (e) {
-      error(e.message)
-      const msg = `Image Magick failed to rotate image: ${theImage}`
-      error(msg)
-      throw new Error(msg, { cause: e })
+      log(`About to rotate thumbnail image by ${image.rotateFillSize} degrees...`)
+      log(`because the full size image was just rotated by ${image.rotateFullSize} degrees.`)
+      try {
+        await this.rotateImage(theThumb, image.rotateFullSize)
+        embedThumbs = true
+      } catch (e) {
+        error(e.message)
+        const msg = `Image Magick failed to rotate thumbnail image: ${theThumb} ${image.rotateFullSize} deg`
+        error(msg)
+        throw new Error(msg, { cause: e })
+      }
     }
-    try {
-      if (image?.resize) {
+    if (image?.rotateThumbnail) {
+      log(`About to rotate thumbnail image by ${image.rotateThumbnail} degrees.`)
+      try {
+        await this.rotateImage(theThumb, image.rotateThumbnail)
+        // newThumbs = true
+        embedThumbs = true
+      } catch (e) {
+        error(e.message)
+        const msg = `Image Magick failed to rotate thumbnail image: ${theThumb} ${image.rotateThumbnail} deg`
+        error(msg)
+        throw new Error(msg, { cause: e })
+      }
+    }
+    if (image?.resize) {
+      try {
         // TODO: create resizeImage() method
         // await this.resizeImage(image.resize)
         // newThumbs = true // maybe
+      } catch (e) {
+        const msg = `Image Magick failed up resize image: ${theImage}`
+        error(msg)
+        throw new Error(msg, { cause: e })
       }
-    } catch (e) {
-      const msg = `Image Magick failed up resize image: ${theImage}`
-      error(msg)
-      throw new Error(msg, { cause: e })
     }
-    try {
+    log('remakeThumbs: ', remakeThumbs)
+    log('newThumbs:    ', newThumbs)
+    if (remakeThumbs || newThumbs) {
       log(`remakeThumbs: ${remakeThumbs}, newThumbs: ${newThumbs}`)
-      if (remakeThumbs || newThumbs) {
+      try {
         const sizes = await this.generateSizes(image.name, remakeThumbs)
         // const sizes = this.generateSizes(image.name, remakeThumbs)
         result.sizes = sizes
         log(sizes)
+      } catch (e) {
+        const msg = `Image Magick failed to regenerate the image sizes for: ${image.name}`
+        error(msg)
+        throw new Error(msg, { cause: e })
       }
-    } catch (e) {
-      const msg = `Image Magick failed to regenerate the image sizes for: ${image.name}`
-      error(msg)
-      throw new Error(msg, { cause: e })
+    }
+    if (embedThumbs) {
+      log(`About to embed the thumbnail ${theThumb} \ninto the image ${theImage}`)
+      try {
+        log(exiftool)
+        const setThumbResult = await exiftool.setThumbnail(theThumb)
+        log(setThumbResult)
+        result.thumbnail = { didEmbed: true }
+      } catch (e) {
+        const msg = `Exiftool failed to embed new thumbnail ${theThumb} \ninto ${theImage}`
+        error(msg)
+        error(e)
+        throw new Error(msg, { cause: e })
+      }
     }
     try {
       result.save = await this.save()
