@@ -792,14 +792,14 @@ class Album {
    * @param { Number } [image.resize.h] - Resize height.
    * @param { String } [image.rotateFullSize] - Rotate the full size image by the given number of degress.
    * @param { String } [image.rotateThumbnail] - Rotate the image thumbnail by the given number of degress.
-   * @param { Boolean } [remakeThumbs] - Force remaking thumbnail images.
+   * @param { Boolean } [remakeThumb] - Force remaking thumbnail images.
    * @return { Object|Boolean } - ...
    */
-  async updateImage(image = null, remakeThumbs = false) {
+  async updateImage(image = null, remakeThumb = false) {
     const log = _log.extend('updateImage')
     const error = _error.extend('updateImage')
     const result = {}
-    let newThumbs = false
+    let newThumb = remakeThumb
     let embedThumbs = false
     let exiftool = new Exiftool()
     log(image)
@@ -827,8 +827,13 @@ class Album {
     }
     const theImage = path.resolve(`${this.#albumDir}/${image.name}`)
     log(`The image to update:     ${theImage}`)
-    const parsedName = path.parse(image.name)
-    const theThumb = path.resolve(`${this.#albumDir}/${parsedName.name}_thumbnail${parsedName.ext}`)
+    let theThumb
+    if (image?.thumbnailName) {
+      theThumb = path.resolve(`${this.#albumDir}/${image.thumbnailName}`)
+    } else {
+      const parsedName = path.parse(image.name)
+      theThumb = path.resolve(`${this.#albumDir}/${parsedName.name}_thumbnail${parsedName.ext}`)
+    }
     log(`The thumbnail to update: ${theThumb}`)
     try {
       exiftool = await exiftool.init(theImage)
@@ -855,7 +860,7 @@ class Album {
         if (image?.hide !== undefined) {
           this.#images[index].hide = image.hide
         }
-        newThumbs = false
+        newThumb = false
       } catch (e) {
         const err = `Failed to update metadata for image: ${theImage}`
         result.error = err
@@ -869,7 +874,7 @@ class Album {
       log(`about to rotate full size image by ${image.rotateFillSize} degrees.`)
       try {
         await this.rotateImage(theImage, image.rotateFullSize)
-        // newThumbs = true
+        // newThumb = true
         // embedThumbs = true
       } catch (e) {
         error(e.message)
@@ -877,23 +882,23 @@ class Album {
         error(msg)
         throw new Error(msg, { cause: e })
       }
-      log(`About to rotate thumbnail image by ${image.rotateFillSize} degrees...`)
-      log(`because the full size image was just rotated by ${image.rotateFullSize} degrees.`)
-      try {
-        await this.rotateImage(theThumb, image.rotateFullSize)
-        embedThumbs = true
-      } catch (e) {
-        error(e.message)
-        const msg = `Image Magick failed to rotate thumbnail image: ${theThumb} ${image.rotateFullSize} deg`
-        error(msg)
-        throw new Error(msg, { cause: e })
-      }
+      // log(`About to rotate thumbnail image by ${image.rotateFillSize} degrees...`)
+      // log(`because the full size image was just rotated by ${image.rotateFullSize} degrees.`)
+      // try {
+      //   await this.rotateImage(theThumb, image.rotateFullSize)
+      //   embedThumbs = true
+      // } catch (e) {
+      //   error(e.message)
+      //   const msg = `Image Magick failed to rotate thumbnail image: ${theThumb} ${image.rotateFullSize} deg`
+      //   error(msg)
+      //   throw new Error(msg, { cause: e })
+      // }
     }
     if (image?.rotateThumbnail) {
       log(`About to rotate thumbnail image by ${image.rotateThumbnail} degrees.`)
       try {
         await this.rotateImage(theThumb, image.rotateThumbnail)
-        // newThumbs = true
+        newThumb = false
         embedThumbs = true
       } catch (e) {
         error(e.message)
@@ -902,36 +907,10 @@ class Album {
         throw new Error(msg, { cause: e })
       }
     }
-    if (image?.resize) {
-      try {
-        // TODO: create resizeImage() method
-        // await this.resizeImage(image.resize)
-        // newThumbs = true // maybe
-      } catch (e) {
-        const msg = `Image Magick failed up resize image: ${theImage}`
-        error(msg)
-        throw new Error(msg, { cause: e })
-      }
-    }
-    log('remakeThumbs: ', remakeThumbs)
-    log('newThumbs:    ', newThumbs)
-    if (remakeThumbs || newThumbs) {
-      log(`remakeThumbs: ${remakeThumbs}, newThumbs: ${newThumbs}`)
-      try {
-        const sizes = await this.generateSizes(image.name, remakeThumbs)
-        // const sizes = this.generateSizes(image.name, remakeThumbs)
-        result.sizes = sizes
-        log(sizes)
-      } catch (e) {
-        const msg = `Image Magick failed to regenerate the image sizes for: ${image.name}`
-        error(msg)
-        throw new Error(msg, { cause: e })
-      }
-    }
     if (embedThumbs) {
       log(`About to embed the thumbnail ${theThumb} \ninto the image ${theImage}`)
       try {
-        log(exiftool)
+        // log(exiftool)
         const setThumbResult = await exiftool.setThumbnail(theThumb)
         log(setThumbResult)
         result.thumbnail = { didEmbed: true }
@@ -939,6 +918,32 @@ class Album {
         const msg = `Exiftool failed to embed new thumbnail ${theThumb} \ninto ${theImage}`
         error(msg)
         error(e)
+        throw new Error(msg, { cause: e })
+      }
+    }
+    if (image?.resize) {
+      try {
+        // TODO: create resizeImage() method
+        // await this.resizeImage(image.resize)
+        // newThumb = true // maybe
+      } catch (e) {
+        const msg = `Image Magick failed up resize image: ${theImage}`
+        error(msg)
+        throw new Error(msg, { cause: e })
+      }
+    }
+    log('remakeThumb: ', remakeThumb)
+    log('newThumb:    ', newThumb)
+    if (remakeThumb || newThumb) {
+      log(`remakeThumb: ${remakeThumb}, newThumb: ${newThumb}`)
+      try {
+        const sizes = await this.generateSizes(image.name, newThumb)
+        // const sizes = this.generateSizes(image.name, remakeThumb)
+        result.sizes = sizes
+        log(sizes)
+      } catch (e) {
+        const msg = `Image Magick failed to regenerate the image sizes for: ${image.name}`
+        error(msg)
         throw new Error(msg, { cause: e })
       }
     }
@@ -1027,11 +1032,10 @@ class Album {
    * @author Matthew Duffy <mattduffy@gmail.com>
    * @async
    * @param { String } image - A string name value of an image to create a thumbnail of.
-   * @param { Boolean } remakeThumbs - If true, force remaking thumbnail images.
+   * @param { Boolean } remakeThumb - If true, force remaking thumbnail images.
    * @return { undefined }
    */
-  async generateSizes(image, remakeThumbs) {
-  // generateSizes(image, remakeThumbs) {
+  async generateSizes(image, remakeThumb) {
     const log = this.#log.extend('generateSizes')
     const error = this.#error.extend('generateSizes')
     const imageUrl = (this.#albumImageUrl) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${image}` : ''
@@ -1091,7 +1095,6 @@ class Album {
       try {
         log('convert file format to JPG')
         await magick.magick('jpg')
-        // magick.magick('jpg')
       } catch (e) {
         const msg = 'image Magick failed to convert to JPG.'
         throw new Error(msg, { cause: e })
@@ -1103,7 +1106,6 @@ class Album {
     try {
       log(`resizing to ${big}, ${orientation}`)
       await magick.resizeAsync(big)
-      // magick.resize(big)
     } catch (e) {
       const msg = `Imaged Magick failed to resize (${big}) ${b}.`
       error(msg)
@@ -1114,7 +1116,6 @@ class Album {
       b = path.join(this.#albumDir, newJpegBig)
       log('b: ', b)
       await magick.writeAsync(b)
-      // magick.write(b)
       theImage.big = path.join(this.#albumImageUrl, newJpegBig)
     } catch (e) {
       const msg = `Imaged Magick failed to save ${b}.`
@@ -1126,7 +1127,6 @@ class Album {
     try {
       log(`resizing to ${med}, ${orientation}`)
       await magick.resizeAsync(med)
-      // magick.resize(med)
     } catch (e) {
       const msg = `Imaged Magick failed to resize (${med}) ${m}.`
       error(msg)
@@ -1137,7 +1137,6 @@ class Album {
       m = path.join(this.#albumDir, newJpegMed)
       log('m: ', m)
       await magick.writeAsync(m)
-      // magick.write(m)
       theImage.med = path.join(this.#albumImageUrl, newJpegMed)
     } catch (e) {
       const msg = `Imaged Magick failed to save ${m}.`
@@ -1149,7 +1148,6 @@ class Album {
     try {
       log(`resizing to ${sml}, ${orientation}`)
       await magick.resizeAsync(sml)
-      // magick.resize(sml)
     } catch (e) {
       const msg = `Imaged Magick failed to resize (${sml}) ${s}.`
       error(msg)
@@ -1160,7 +1158,6 @@ class Album {
       s = path.join(this.#albumDir, newJpegSml)
       log('s: ', s)
       await magick.writeAsync(s)
-      // magick.write(s)
       theImage.sml = path.join(this.#albumImageUrl, newJpegSml)
     } catch (e) {
       const msg = `Imaged Magick failed to save ${s}.`
@@ -1168,14 +1165,12 @@ class Album {
       error(e)
       throw new Error(msg, { cause: e })
     }
-    if (!theImage.thumbnail || remakeThumbs) {
+    if (remakeThumb || !theImage.thumbnail) {
       let t
       try {
         log(`creating thumbnail (${THUMBNAIL})`)
         await magick.stripAsync()
         await magick.resizeAsync(THUMBNAIL)
-        // agick.strip()
-        // agick.resize(THUMBNAIL)
       } catch (e) {
         const msg = `Imaged Magick failed to resize (${THUMBNAIL}) ${t}.`
         error(msg)
@@ -1185,7 +1180,6 @@ class Album {
       try {
         t = path.join(this.#albumDir, thb)
         log('t: ', t)
-        // magick.write(t)
         await magick.writeAsync(t)
         theImage.thumbnail = path.join(this.#albumImageUrl, thb)
       } catch (e) {
