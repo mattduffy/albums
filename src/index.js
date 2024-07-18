@@ -874,8 +874,6 @@ class Album {
       log(`about to rotate full size image by ${image.rotateFillSize} degrees.`)
       try {
         await this.rotateImage(theImage, image.rotateFullSize)
-        // newThumb = true
-        // embedThumbs = true
       } catch (e) {
         error(e.message)
         const msg = `Image Magick failed to rotate image: ${theImage} ${image.rotateFullSize} deg`
@@ -910,7 +908,6 @@ class Album {
     if (embedThumbs) {
       log(`About to embed the thumbnail ${theThumb} \ninto the image ${theImage}`)
       try {
-        // log(exiftool)
         const setThumbResult = await exiftool.setThumbnail(theThumb)
         log(setThumbResult)
         result.thumbnail = { didEmbed: true }
@@ -938,7 +935,6 @@ class Album {
       log(`remakeThumb: ${remakeThumb}, newThumb: ${newThumb}`)
       try {
         const sizes = await this.generateSizes(image.name, newThumb)
-        // const sizes = this.generateSizes(image.name, remakeThumb)
         result.sizes = sizes
         log(sizes)
       } catch (e) {
