@@ -871,16 +871,17 @@ class Album {
     }
     this.#images[index].hide = image.hide
     if (image?.rotateFullSize) {
-      log(`about to rotate full size image by ${image.rotateFillSize} degrees.`)
+      log(`about to rotate full size image by ${image.rotateFullSize} degrees.`)
       try {
         await this.rotateImage(theImage, image.rotateFullSize)
+        newThumb = true
       } catch (e) {
         error(e.message)
         const msg = `Image Magick failed to rotate image: ${theImage} ${image.rotateFullSize} deg`
         error(msg)
         throw new Error(msg, { cause: e })
       }
-      // log(`About to rotate thumbnail image by ${image.rotateFillSize} degrees...`)
+      // log(`About to rotate thumbnail image by ${image.rotateFullSize} degrees...`)
       // log(`because the full size image was just rotated by ${image.rotateFullSize} degrees.`)
       // try {
       //   await this.rotateImage(theThumb, image.rotateFullSize)
@@ -896,7 +897,9 @@ class Album {
       log(`About to rotate thumbnail image by ${image.rotateThumbnail} degrees.`)
       try {
         await this.rotateImage(theThumb, image.rotateThumbnail)
-        newThumb = false
+        if (!image?.rotateFullSize) {
+          newThumb = false
+        }
         embedThumbs = true
       } catch (e) {
         error(e.message)
@@ -931,10 +934,14 @@ class Album {
     }
     log('remakeThumb: ', remakeThumb)
     log('newThumb:    ', newThumb)
-    if (remakeThumb || newThumb) {
-      log(`remakeThumb: ${remakeThumb}, newThumb: ${newThumb}`)
+    if (image?.rotateFullSize) {
       try {
-        const sizes = await this.generateSizes(image.name, newThumb)
+        let x = false
+        if (remakeThumb || newThumb) {
+          log(`remakeThumb: ${remakeThumb}, newThumb: ${newThumb}`)
+          x = true
+        }
+        const sizes = await this.generateSizes(image.name, x)
         result.sizes = sizes
         log(sizes)
       } catch (e) {
