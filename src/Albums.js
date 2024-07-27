@@ -19,7 +19,7 @@ class Albums {
     this.#mongo = config?.mongo ?? null
   }
 
-  /*
+  /**
    * Find a saved album in the database by given id value and return as an Album instance.
    * @summary Find a saved album in the database by give id value and return as an Album instance.
    * @author Matthew Duffy <mattduffy@gmail.com>
@@ -54,7 +54,48 @@ class Albums {
     }
   }
 
-  /*
+  /**
+   * Return a list of all the images in a given users's ablum.
+   * @summary Return a list of all the images in a given users's album.
+   * @author Matthew Duffy <mattduffy@gmail.com>
+   * @async
+   * @param { (MongoClient|Collection) } mongo - Either a mongodb client connection or its ablum collection.
+   * @param { String|ObjectId } aId - The _id value of the album.
+   * @param { String } ownerName - The string value of the album owner's username.
+   * @return { Object[]|Boolean } - An array of object literals containing the details of the album images, or false.
+   */
+  static async getImageList(mongo, aId, ownerName) {
+    if (!mongo) throw new Error('Missing db collection reference parameter')
+    if (!aId) throw new Error('Missing album id parameter.')
+    if (!ownerName) throw new Error('Missing album owner\'s name')
+    let collection
+    if (!mongo?.s?.namespace?.collection) {
+      console.log('Setting db collection to: ', ALBUMS)
+      collection = mongo.collection(ALBUMS)
+    } else {
+      collection = mongo
+    }
+    let albumId
+    let images
+    try {
+      albumId = new ObjectId(aId)
+    } catch (e) {
+      console.error(e)
+      return false
+    }
+    try {
+      const filter = { _id: albumId, creator: ownerName }
+      const options = { projection: { images: 1 } }
+      const found = await collection.find(filter, options).toArray()
+      // console.log(found)
+      images = found[0]?.images || []
+    } catch (e) {
+      console.error(e)
+    }
+    return images
+  }
+
+  /**
    * Return a list of public and private albums for a specific user account.
    * @summary Return a list of public and private albums for a specific user account.
    * @author Matthew Duffy <mattduffy@gmail.com>
@@ -110,7 +151,7 @@ class Albums {
     return albumBuckets
   }
 
-  /*
+  /**
    * Return a list of recently added albums.
    * @summary Return a list of recently added albums.
    * @author Matthew Duffy <mattduffy@gmail.com>
@@ -130,7 +171,7 @@ class Albums {
     return recent10
   }
 
-  /*
+  /**
    * Return a list of users with publicly accessible albums.
    * @summary Return a list of users with publicly accessible albums.
    * @author Matthew Duffy <mattduffy@gmail.com>
