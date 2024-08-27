@@ -46,7 +46,7 @@ class Albums {
       console.log(found.keywords)
       found.collection = collection
       found.redis = redis
-      return new Album(found)
+      return new Album(found).init()
     } catch (e) {
       console.error(`Failed to find album by id: ${id}`)
       console.error(e)
