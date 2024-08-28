@@ -71,6 +71,8 @@ class Album {
 
   #albumName
 
+  #albumSlug
+
   #albumOwner
 
   #albumJson
@@ -93,6 +95,7 @@ class Album {
    * @param { string } config.albumPreviewImage - Path portion of the url to show album preview image.
    * @param { string } config.albumImageUrl - Path portion of the public href url from the album images.
    * @param { string } config.albumName - The name of the album.
+   * @param { string } config.albumSlug - Slugified string version of the album name.
    * @param { string } config.albumOwer - The name of the album owner.
    * @param { string } config.albumKeywords - The keywords of the album.
    * @param { string } config.albumDescription - The description of the album.
@@ -130,6 +133,7 @@ class Album {
     this.#albumUrl = config?.albumUrl ?? config?.url ?? null
     this.#albumImageUrl = config?.albumImageUrl ?? config?.imageUrl ?? null
     this.#albumName = config?.albumName ?? config.name ?? null
+    this.#albumSlug = config?.albumSlug ?? config.slug ?? null
     this.#albumOwner = config?.albumOwner ?? config.owner ?? config?.creator ?? null
     if (config?.albumKeywords) {
       this.#albumKeywords = new Set(config.albumKeywords)
@@ -498,6 +502,7 @@ class Album {
           $set: {
             streamId: this.#streamId,
             dir: this.#albumDir,
+            slug: this.#albumSlug,
             imageUrl: this.#albumImageUrl,
             creator: this.#albumOwner,
             name: this.#albumName,
@@ -1264,6 +1269,7 @@ class Album {
     return {
       _id: this.#albumId,
       dir: this.#albumDir,
+      slug: this.#albumSlug,
       imageUrl: this.#albumImageUrl,
       creator: this.#albumOwner,
       name: this.#albumName,
@@ -1370,6 +1376,14 @@ class Album {
 
   set name(name) {
     this.#albumName = name
+  }
+
+  set slug(s) {
+    this.#albumSlug = slug
+  }
+
+  get slug() {
+    return this.#albumSlug
   }
 
   get owner() {
