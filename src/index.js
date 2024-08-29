@@ -1379,7 +1379,7 @@ class Album {
   }
 
   set slug(s) {
-    this.#albumSlug = slug
+    this.#albumSlug = s
   }
 
   get slug() {
