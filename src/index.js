@@ -152,6 +152,23 @@ class Album {
   }
 
   /**
+   * A custom toString() method.
+   * @summary A custom toString() method.
+   * @author Matthew Dufffy <mattduffy@gmail.com>
+   * @return { String }
+   */
+  toString() {
+    const p = 15
+    const str = `${'name:'.padEnd(p)} ${this.#albumName}\n`
+              + `${'id:'.padEnd(p)} ObjectId(${this.#albumId})\n`
+              + `${'author:'.padEnd(p)} ${this.#albumOwner}\n`
+              + `${'slug:'.padEnd(p)} ${this.#albumSlug}\n`
+              + `${'root dir:'.padEnd(p)} ${this.#rootDir}\n`
+              + `${'album dir:'.padEnd(p)} ${this.#albumDir}\n`
+    return str
+  }
+
+  /**
    * Run all the async operations to initialize the album.
    * @summary Run all the async operations to initialize the album.
    * @async
