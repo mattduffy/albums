@@ -687,12 +687,13 @@ class Album {
    * @async
    * @param { Object } newImage - An object containing new image to be added to the gallery.
    * @param { String } newImage.name - The name of the new image.
+   * @param { Boolean } [skipSizes=false] - Don't make new sizes if True.
    * @throws { Error } - Throws an error for any async method.
    * @return { Object } result - Details of new image, sizes, urls, etc.
    */
-  async addImage(newImage) {
-    const log = _log.extend('newImage')
-    const error = _error.extend('newImage')
+  async addImage(newImage, skipSizes = false) {
+    const log = _log.extend('addImage')
+    const error = _error.extend('addImage')
     const result = {}
     log(`Adding new image to the gallery: ${newImage}`)
     if (!newImage) {
@@ -777,14 +778,16 @@ class Album {
       makeThumb = true
     }
     let sizes
-    try {
-      sizes = await this.generateSizes(img, makeThumb)
-      result.sizes = sizes
-    } catch (e) {
-      const err = `Failed to create image sizes for ${newImage}`
-      error(err)
-      error(e)
-      throw new Error(err, { cause: e })
+    if (!skipSizes) {
+      try {
+        sizes = await this.generateSizes(img, makeThumb)
+        result.sizes = sizes
+      } catch (e) {
+        const err = `Failed to create image sizes for ${newImage}`
+        error(err)
+        error(e)
+        throw new Error(err, { cause: e })
+      }
     }
     try {
       await this.save()
