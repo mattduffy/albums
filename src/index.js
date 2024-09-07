@@ -174,9 +174,12 @@ class Album {
    * @async
    * @throws Error
    * @param { String } dirPath - A string path to the album directory.
+   * @param { Object } [skip={}] - An object literal with steps to skip.
+   * @param { Boolean } [skip.sizes] - If True, skip generating sizes.
+   * @param {Boolean } [skip.metadata] - If True, skio exiftool metatdta step.
    * @return { Album } Return a fully iniitialized album instance.
    */
-  async init(dirPath = null) {
+  async init(dirPath = null, skip = {}) {
     const log = _log.extend('init')
     const error = _error.extend('init')
     if (dirPath) {
@@ -235,25 +238,29 @@ class Album {
       error(msg)
       throw new Error(msg, { cause: e })
     }
-    try {
-      await this.getMetadata()
-    } catch (e) {
-      const msg = 'Exiftool failed.'
-      error(msg)
-      throw new Error(msg, { cause: e })
-    }
-    try {
-      this.#images.forEach(async (img) => {
-        await this.generateSizes(img.name)
-      })
-      log(`is album preview image set?: ${this.#albumPreviewImage}`)
-      if (!this.#albumPreviewImage) {
-        this.#albumPreviewImage = this.#images[0].thumbnail
-        log(`setting album preview image to: ${this.#albumPreviewImage}`)
+    if (!skip?.metadata) {
+      try {
+        await this.getMetadata()
+      } catch (e) {
+        const msg = 'Exiftool failed.'
+        error(msg)
+        throw new Error(msg, { cause: e })
       }
-    } catch (e) {
-      const msg = 'Image Magick resising failed.'
-      throw new Error(msg, { cause: e })
+    }
+    if (!skip?.sizes) {
+      try {
+        this.#images.forEach(async (img) => {
+          await this.generateSizes(img.name)
+        })
+        log(`is album preview image set?: ${this.#albumPreviewImage}`)
+        if (!this.#albumPreviewImage) {
+          this.#albumPreviewImage = this.#images[0].thumbnail
+          log(`setting album preview image to: ${this.#albumPreviewImage}`)
+        }
+      } catch (e) {
+        const msg = 'Image Magick resising failed.'
+        throw new Error(msg, { cause: e })
+      }
     }
     try {
       if (!this.#albumJson) {
