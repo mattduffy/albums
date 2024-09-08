@@ -158,13 +158,16 @@ class Album {
    * @return { String }
    */
   toString() {
-    const p = 15
-    const str = `${'name:'.padEnd(p)} ${this.#albumName}\n`
+    const p = 16
+    const str = 'Album configuration details \n'
+              + `${'name:'.padEnd(p)} ${this.#albumName}\n`
               + `${'id:'.padEnd(p)} ObjectId(${this.#albumId})\n`
               + `${'author:'.padEnd(p)} ${this.#albumOwner}\n`
               + `${'slug:'.padEnd(p)} ${this.#albumSlug}\n`
               + `${'root dir:'.padEnd(p)} ${this.#rootDir}\n`
               + `${'album dir:'.padEnd(p)} ${this.#albumDir}\n`
+              + `${'album Image Url:'.padEnd(p)} ${this.#albumImageUrl}\n`
+              + `${'album url:'.padEnd(p)} ${this.#albumUrl}\n`
     return str
   }
 
@@ -184,8 +187,10 @@ class Album {
     const error = _error.extend('init')
     if (dirPath) {
       this.#albumDir = path.resolve(dirPath)
+      log(`init using dirPath param: ${dirPath}`)
     } else {
       this.#albumDir = path.resolve(this.#albumDir)
+      log(`init using #albumDir property: ${this.#albumDir}`)
     }
     const parsedAlbumPath = path.parse(this.#albumDir)
     log(parsedAlbumPath)
@@ -197,14 +202,15 @@ class Album {
         this.#rootDir = parsedAlbumPath.dir
       }
     }
-    log(this.#rootDir, '/', this.#albumDir)
+    log(this.#rootDir, '\n', this.#albumDir)
     if (!this.#albumUrl) {
       this.#albumUrl += parsedAlbumPath.base
       log(`#album url: ${this.#albumUrl}`)
     }
     if (!this.#albumImageUrl) {
-      this.#albumImageUrl += parsedAlbumPath.base
-      log(`#album image url: ${this.#albumImageUrl}`)
+      const basePath = /public\/(?<p>.*)$/.exec(parsedAlbumPath.dir)
+      this.#albumImageUrl = `${basePath.groups.p}/${parsedAlbumPath.base}`
+      log(`#album image url being set to: ${this.#albumImageUrl}`)
     }
     let dir
     try {
@@ -494,6 +500,7 @@ class Album {
     if (this.#newAlbum) {
       theId = new ObjectId()
       this.#albumId = theId
+      this.#newAlbum = false
     } else {
       theId = new ObjectId(this.#albumId)
     }
@@ -1346,7 +1353,8 @@ class Album {
         log(this.#rootDir)
       }
     }
-    return this.init()
+    const skip = { sizes: true, metadata: true }
+    return this.init(null, skip)
   }
 
   addKeyword(word) {
