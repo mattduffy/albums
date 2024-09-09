@@ -83,6 +83,10 @@ class Album {
 
   #directoryIterator
 
+  #postId
+
+  #noop
+
   /**
    * Create an instance of Album.
    * @summary Create an instance of Album.
@@ -101,8 +105,9 @@ class Album {
    * @param { string } config.albumDescription - The description of the album.
    * @param { Object[] } config.albumImages - An array of JSON objects, each describing an image.
    * @param { Boolean } config.public - The visibilty status of the album.
-   * @param { Object } config.redis - An instance of a redis connection.
+   * @param { String } [config.postId = null] - If the album belongs to a blog post, the _id of the post.
    * @param { string } [config.streamId = null] - A stream id for redis recently added stream.
+   * @param { Object } config.redis - An instance of a redis connection.
    * @param { string } config.dbName - A string with the db name if needed.
    * @param { Object } config.mongo - An instance of a mongoDB connection.
    * @param { Object } config.collection - A refernce to a mongoDB collection.
@@ -144,6 +149,7 @@ class Album {
     }
     this.#albumDescription = config?.albumDescription ?? config?.description ?? null
     this.#images = config?.albumImages ?? config?.images ?? []
+    this.#postId = config?.postId ?? null
     // pseudo-protected properties
     // this._directoryIterator = null
     this._albumPublic = config?.public ?? false
@@ -159,7 +165,7 @@ class Album {
    */
   toString() {
     const p = 16
-    const str = 'Album configuration details \n'
+    const str = 'Album configuration details: \n'
               + `${'name:'.padEnd(p)} ${this.#albumName}\n`
               + `${'id:'.padEnd(p)} ObjectId(${this.#albumId})\n`
               + `${'author:'.padEnd(p)} ${this.#albumOwner}\n`
@@ -543,6 +549,7 @@ class Album {
             keywords: Array.from(this.#albumKeywords),
             public: this._albumPublic,
             images: this.#images,
+            post_id: this.#postId,
           },
         }
         if (this.#newAlbum) {
@@ -1300,7 +1307,7 @@ class Album {
    * @return { Object }
    */
   async createAlbumJson() {
-    return {
+    const json = {
       _id: this.#albumId,
       dir: this.#albumDir,
       slug: this.#albumSlug,
@@ -1313,6 +1320,10 @@ class Album {
       public: this._albumPublic,
       images: this.#images,
     }
+    if (this.#postId) {
+      json.postId = this.#postId
+    }
+    return json
   }
 
   set redisClient(client) {
@@ -1393,6 +1404,15 @@ class Album {
     this.#albumUrl = url
   }
 
+  get imageUrl() {
+    return this.#albumImageUrl
+  }
+
+  // set imageUrl(i) {
+  //   this.#noop = undefined
+  //   _log('imageUrl setter is a no-op property.')
+  // }
+
   get images() {
     return this.#images
   }
@@ -1471,6 +1491,14 @@ class Album {
 
   set json(j) {
     this.#error('no-op: set json()')
+  }
+
+  get postId() {
+    return this.#postId
+  }
+
+  set postId(id) {
+    this.#postId = id
   }
 }
 
