@@ -497,9 +497,6 @@ class Album {
       const msg = `No connection to client collection ${ALBUMS}`
       throw new Error(msg)
     }
-    if (!this.#albumJson) {
-      this.#albumJson = await this.createAlbumJson()
-    }
     let saved
     let filter
     let theId
@@ -511,6 +508,9 @@ class Album {
       theId = new ObjectId(this.#albumId)
     }
     log(`the _id is ${theId}`)
+    if (!this.#albumJson) {
+      this.#albumJson = await this.createAlbumJson()
+    }
     try {
       if (this._albumPublic) {
         const add = await this.addToRedisStream()
@@ -533,7 +533,7 @@ class Album {
         saved = await this.#db.insertOne(this.#albumJson)
       } else {
         log('save filter: %o', filter)
-        log('replace doc: %o', this.#albumJson)
+        log('replace doc: %O', this.#albumJson)
         // saved = await this.#db.replaceOne(filter, this.#albumJson, options)
         const update = {
           $set: {
@@ -1378,8 +1378,10 @@ class Album {
 
   get id() {
     if (this.#albumId) {
+      _log(`returning _id: ${this.#albumId}`)
       return this.#albumId
     }
+    _log('undefined id')
     return undefined
   }
 
