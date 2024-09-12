@@ -351,6 +351,7 @@ class Album {
       log(`adding new album (id: ${this.#albumId}) to redis stream`)
       const entry = {
         id: this.#albumId,
+        slug: this.#albumSlug,
         name: this.#albumName,
         owner: this.#albumOwner,
         access: this._albumPublic,
