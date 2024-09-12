@@ -21,7 +21,7 @@ class Albums {
 
   /**
    * Find a saved album in the database by given id value and return as an Album instance.
-   * @summary Find a saved album in the database by give id value and return as an Album instance.
+   * @summary Find a saved album in the database by given id value and return as an Album instance.
    * @author Matthew Duffy <mattduffy@gmail.com>
    * @async
    * @param { MongoClient|Collection } mongo - Either a mongodb client connection or its album collection.
@@ -46,9 +46,82 @@ class Albums {
       console.log(found.keywords)
       found.collection = collection
       found.redis = redis
-      return new Album(found).init()
+      const skip = { sizes: true, metadata: true }
+      return new Album(found).init(null, skip)
     } catch (e) {
       console.error(`Failed to find album by id: ${id}`)
+      console.error(e)
+      return false
+    }
+  }
+
+  /**
+   * Find a saved album in the database by given name value and return as an Album instance.
+   * @summary Find a saved album in the database by given name value and return as an Album instance.
+   * @author Matthew Duffy <mattduffy@gmail.com>
+   * @async
+   * @param { MongoClient|Collection } mongo - Either a mongodb client connection or its album collection.
+   * @param { Redis } redis - A redis clint connection instance.
+   * @param { String } name - The string value of an album's name to search the db for.
+   * @return { Album|Boolean } - A populated instance of an Album if found, otherwise false.
+   */
+  static async getByName(mongo, name, redis) {
+    if (!mongo) return false
+    if (!name) return false
+    let collection
+    if (!mongo.s.namespace.collection) {
+      console.log('Setting db collection to: ', ALBUMS)
+      collection = mongo.collection(ALBUMS)
+    } else {
+      console.log('Collection is already set: ', mongo.collectionName)
+      collection = mongo
+    }
+    let found
+    try {
+      found = await collection.findOne({ name })
+      console.log(found.keywords)
+      found.collection = collection
+      found.redis = redis
+      const skip = { sizes: true, metadata: true }
+      return new Album(found).init(null, skip)
+    } catch (e) {
+      console.error(`Failed to find album by name: ${name}`)
+      console.error(e)
+      return false
+    }
+  }
+
+  /**
+   * Find a saved album in the database by given slug and return as an Album instance.
+   * @summary Find a saved album in the database by given slug value and return as an Album instance.
+   * @author Matthew Duffy <mattduffy@gmail.com>
+   * @async
+   * @param { MongoClient|Collection } mongo - Either a mongodb client connection or its album collection.
+   * @param { Redis } redis - A redis clint connection instance.
+   * @param { String } slug - The string value of an album's slug to search the db for.
+   * @return { Album|Boolean } - A populated instance of an Album if found, otherwise false.
+   */
+  static async getBySlug(mongo, slug, redis) {
+    if (!mongo) return false
+    if (!slug) return false
+    let collection
+    if (!mongo.s.namespace.collection) {
+      console.log('Setting db collection to: ', ALBUMS)
+      collection = mongo.collection(ALBUMS)
+    } else {
+      console.log('Collection is already set: ', mongo.collectionName)
+      collection = mongo
+    }
+    let found
+    try {
+      found = await collection.findOne({ slug })
+      console.log(found.keywords)
+      found.collection = collection
+      found.redis = redis
+      const skip = { sizes: true, metadata: true }
+      return new Album(found).init(null, skip)
+    } catch (e) {
+      console.error(`Failed to find album by slug: ${slug}`)
       console.error(e)
       return false
     }
@@ -134,6 +207,7 @@ class Albums {
               public: '$public',
               name: '$name',
               description: '$description',
+              slug: '$slug',
             },
           },
         },
