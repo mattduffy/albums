@@ -165,7 +165,11 @@ describe('First test for albums package', async () => {
     assert.ok(extracted.unpacked, 'Unpack operation failed.')
 
     const newName = `${unpacker.getFileBasename()}-${bytes}`
-    const secondExtracted = await unpacker.unpack(path.join(rootDir, opts.albumOwner), null, { rename: true, newName })
+    const secondExtracted = await unpacker.unpack(
+      path.join(rootDir, opts.albumOwner),
+      null,
+      { rename: true, newName },
+    )
     assert.ok(secondExtracted.unpacked, `Second unpack (and rename ${newName} operation failed.`)
   })
 
@@ -189,7 +193,8 @@ describe('First test for albums package', async () => {
   })
 
   it('should be able to set the description for the album.', async () => {
-    const descriptionText = 'This is my first test album being created.  I don\'t know when this package will be finished and put into use.'
+    const descriptionText = 'This is my first test album being created.  '
+      + 'I don\'t know when this package will be finished and put into use.'
     log(`album desciption: ${descriptionText}`)
     const opts = {
       collection,
