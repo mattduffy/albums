@@ -14,32 +14,28 @@ import { Exiftool } from '@mattduffy/exiftool' // eslint-disable-line import/no-
 import { Album } from '../src/index.js'
 import { _log, _error } from '../src/utils/debug.js'
 
-if (process.env.DB_NAME === undefined) {
-  console.log(`Missing db name in environment var process.env.DB_NAME: ${process.env.DB_NAME}`)
-  process.exit(1)
-}
-
+const log = _log.extend('Albums:test')
+const error = _error.extend('test') // eslint-disable-line no-unused-vars
 const testEnv = {}
 const env = path.resolve('.', 'test/test.env')
-console.log(`dotenv config file: ${env}`)
+_log(`dotenv config file: ${env}`)
 Dotenv.config({
   path: env,
   processEnv: testEnv,
   debug: true,
   encoding: 'utf8',
 })
-if (!process.env.DB_NAME) {
-  testEnv.HAS_MONGO = false
-} else {
+if (process.env.DB_NAME) {
   testEnv.DB_NAME = process.env.DB_NAME
+} else if (testEnv.DB_NAME) {
+  _log(testEnv.DB_NAME)
 }
-const log = _log.extend('Albums:test')
-const error = _error.extend('test') // eslint-disable-line no-unused-vars
+
 log(testEnv)
 const rootDir = path.resolve('test', testEnv.ROOTDIR)
 const uploads = path.resolve('test', testEnv.UPLOADSDIR)
 const archive = `${uploads}/marquetry.tar.gz`
-let ioredis
+// let ioredis
 let redis
 let prefix
 let mongodb
