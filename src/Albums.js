@@ -21,10 +21,12 @@ class Albums {
 
   /**
    * Find a saved album in the database by given id value and return as an Album instance.
-   * @summary Find a saved album in the database by given id value and return as an Album instance.
+   * @summary Find a saved album in the database by given id value and return as an
+   * Album instance.
    * @author Matthew Duffy <mattduffy@gmail.com>
    * @async
-   * @param { MongoClient|Collection } mongo - Either a mongodb client connection or its album collection.
+   * @param { MongoClient|Collection } mongo - Either a mongodb client connection or its
+   * album collection.
    * @param { Redis } redis - A redis clint connection instance.
    * @param { String } id - The string value of an ObjectId to search the db for.
    * @return { Album|Boolean } - A populated instance of an Album if found, otherwise false.
@@ -57,10 +59,12 @@ class Albums {
 
   /**
    * Find a saved album in the database by given name value and return as an Album instance.
-   * @summary Find a saved album in the database by given name value and return as an Album instance.
+   * @summary Find a saved album in the database by given name value and return as an
+   * Album instance.
    * @author Matthew Duffy <mattduffy@gmail.com>
    * @async
-   * @param { MongoClient|Collection } mongo - Either a mongodb client connection or its album collection.
+   * @param { MongoClient|Collection } mongo - Either a mongodb client connection or
+   * its album collection.
    * @param { Redis } redis - A redis clint connection instance.
    * @param { String } name - The string value of an album's name to search the db for.
    * @return { Album|Boolean } - A populated instance of an Album if found, otherwise false.
@@ -93,10 +97,12 @@ class Albums {
 
   /**
    * Find a saved album in the database by given slug and return as an Album instance.
-   * @summary Find a saved album in the database by given slug value and return as an Album instance.
+   * @summary Find a saved album in the database by given slug value and return as an
+   * Album instance.
    * @author Matthew Duffy <mattduffy@gmail.com>
    * @async
-   * @param { MongoClient|Collection } mongo - Either a mongodb client connection or its album collection.
+   * @param { MongoClient|Collection } mongo - Either a mongodb client connection or its
+   * album collection.
    * @param { Redis } redis - A redis clint connection instance.
    * @param { String } slug - The string value of an album's slug to search the db for.
    * @return { Album|Boolean } - A populated instance of an Album if found, otherwise false.
@@ -132,10 +138,12 @@ class Albums {
    * @summary Return a list of all the images in a given users's album.
    * @author Matthew Duffy <mattduffy@gmail.com>
    * @async
-   * @param { (MongoClient|Collection) } mongo - Either a mongodb client connection or its ablum collection.
+   * @param { (MongoClient|Collection) } mongo - Either a mongodb client connection or its
+   * ablum collection.
    * @param { String|ObjectId } aId - The _id value of the album.
    * @param { String } ownerName - The string value of the album owner's username.
-   * @return { Object[]|Boolean } - An array of object literals containing the details of the album images, or false.
+   * @return { Object[]|Boolean } - An array of object literals containing the details of
+   * the album images, or false.
    */
   static async getImageList(mongo, aId, ownerName) {
     if (!mongo) throw new Error('Missing db collection reference parameter')
@@ -173,9 +181,11 @@ class Albums {
    * @summary Return a list of public and private albums for a specific user account.
    * @author Matthew Duffy <mattduffy@gmail.com>
    * @async
-   * @param { (MongoClient|Collection) } mongo - Either a mongodb client connection or its ablum collection.
+   * @param { (MongoClient|Collection) } mongo - Either a mongodb client connection or its
+   * ablum collection.
    * @param { String } username - The name of user for album list.
-   * @return { (Object|Boolean) } - An object literal with public and private list, or false if none found.
+   * @return { (Object|Boolean) } - An object literal with public and private list, or false
+   * if none found.
    */
   static async list(mongo, user) {
     if (!mongo) return false
@@ -219,7 +229,10 @@ class Albums {
     console.log(pipeline)
     console.log(`Looking for albums for user: ${user}`)
     // const albumCursor = await collection.find({ albumOwner: user }).toArray()
-    // const albumCursor = await collection.find({ creator: user }, { projection: { name: 1, public: 1, url: 1 } }).toArray()
+    // const albumCursor = await collection.find(
+    //   { creator: user },
+    //   { projection: { name: 1, public: 1, url: 1 } }
+    // ).toArray()
     const albumBuckets = await collection.aggregate(pipeline).toArray()
     // console.log('albumBuckets: %o', albumBuckets)
     return albumBuckets
@@ -235,12 +248,17 @@ class Albums {
    * @returm { Array } - An array of recently added albums.
    */
   static async recentlyAdded(redis, count = 10) {
-    const recentlyAddedStream = 'albums:recent:10'
-    const response = await redis.xrevrange(recentlyAddedStream, '+', '-', 'COUNT', count)
+    let recentlyAddedStream = 'albums:recent:10'
+    // ioredis command version
+    // const response = await redis.xrevrange(recentlyAddedStream, '+', '-', 'COUNT', count)
+    // official redis command version
+    recentlyAddedStream = `mmt:${recentlyAddedStream}`
+    const response = await redis.xRevRange(recentlyAddedStream, '+', '-', { COUNT: count })
     console.log(`redis: xrevrange ${recentlyAddedStream} + - COUNT ${count}`)
     console.log(response)
     // [ [ '1687734539621-0', [ 'album', '{"name":"Here is a sixth one"}' ] ] ]
-    const recent10 = response.map((a) => JSON.parse(a[1][1]))
+    // const recent10 = response.map((a) => JSON.parse(a[1][1]))
+    const recent10 = response.map((a) => JSON.parse(a?.message?.album))
     console.log(recent10)
     return recent10
   }
@@ -250,7 +268,8 @@ class Albums {
    * @summary Return a list of users with publicly accessible albums.
    * @author Matthew Duffy <mattduffy@gmail.com>
    * @async
-   * @param { (MongoClient|Collection) } mongo - Either a mongodb client connection or its ablum collection.
+   * @param { (MongoClient|Collection) } mongo - Either a mongodb client connection or its
+   * ablum collection.
    * @return { (Array|Boolean) } An array of usernames of false if none found.
    */
   static async usersWithPublicAlbums(mongo) {
