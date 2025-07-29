@@ -96,16 +96,20 @@ class Album {
    * @param { string } config.albumId - A string of the unique album id.
    * @param { string } config.albumDir - A string of the album file system path.
    * @param { string } config.albumUrl - Path portion of public url for the album.
-   * @param { string } config.albumPreviewImage - Path portion of the url to show album preview image.
-   * @param { string } config.albumImageUrl - Path portion of the public href url from the album images.
+   * @param { string } config.albumPreviewImage - Path portion of the url to show album
+   * preview image.
+   * @param { string } config.albumImageUrl - Path portion of the public href url from
+   * the album images.
    * @param { string } config.albumName - The name of the album.
    * @param { string } config.albumSlug - Slugified string version of the album name.
    * @param { string } config.albumOwer - The name of the album owner.
    * @param { string } config.albumKeywords - The keywords of the album.
    * @param { string } config.albumDescription - The description of the album.
-   * @param { Object[] } config.albumImages - An array of JSON objects, each describing an image.
+   * @param { Object[] } config.albumImages - An array of JSON objects, each describing an
+   * image.
    * @param { Boolean } config.public - The visibilty status of the album.
-   * @param { String } [config.postId = null] - If the album belongs to a blog post, the _id of the post.
+   * @param { String } [config.postId = null] - If the album belongs to a blog post, the
+   * _id of the post.
    * @param { string } [config.streamId = null] - A stream id for redis recently added stream.
    * @param { Object } config.redis - An instance of a redis connection.
    * @param { string } config.dbName - A string with the db name if needed.
@@ -290,7 +294,8 @@ class Album {
    * Remove album from the redis new albums stream.
    * @summary Remove album from the redis new albums stream.
    * @author Matthew Duffy <mattduffy@gmail.com>
-   * @return { Boolean|undefined } - Returns true if successfully removed from the redis stream.
+   * @return { Boolean|undefined } - Returns true if successfully removed from the redis
+   * stream.
    */
   async removeFromRedisStream() {
     const log = _log.extend('removeFromRedisStream')
@@ -300,7 +305,10 @@ class Album {
     // }
     if (this.#streamId) {
       try {
-        const response = await this.#redis.xdel('albums:recent:10', this.#streamId)
+        // ioredis command version
+        // const response = await this.#redis.xdel('albums:recent:10', this.#streamId)
+        // official redis command
+        const response = await this.#redis.xDel('mmt:albums:recent:10', this.#streamId)
         this.#streamId = null
         log(response)
       } catch (e) {
@@ -339,7 +347,10 @@ class Album {
     if (this.#streamId) {
       log(`album already has a streamId: ${this.#streamId}, clear it and re-add.`)
       try {
-        const clear = await this.#redis.xdel('albums:recent:10', this.#streamId)
+        // ioredis command version
+        // const clear = await this.#redis.xdel('albums:recent:10', this.#streamId)
+        // official redis command
+        const clear = await this.#redis.xDel('mmt:albums:recent:10', this.#streamId)
         log(clear)
       } catch (e) {
         error(e)
@@ -358,7 +369,12 @@ class Album {
         preview: this.#albumPreviewImage,
         description: this.#albumDescription,
       }
-      response = await this.#redis.xadd('albums:recent:10', '*', 'album', JSON.stringify(entry))
+      response = await this.#redis.xAdd(
+        'mmt:albums:recent:10',
+        '*',
+        'album',
+        JSON.stringify(entry),
+      )
       log('xadd response: ', response)
       this.#streamId = response
     } catch (e) {
@@ -459,7 +475,8 @@ class Album {
         deleted = false
       }
     } catch (e) {
-      error(`failed to remove albumId ${this.#albumId}, streamId ${this.#streamId} from redis stream.`)
+      error(`failed to remove albumId ${this.#albumId}, `
+        + `streamId ${this.#streamId} from redis stream.`)
       error(e)
       deleted = false
     }
@@ -489,7 +506,8 @@ class Album {
    * @author Matthew Duffy <mattduffy@gmail.com>
    * @async
    * @throws { Error } If no db collection is available.
-   * @return { ObjectId|Boolean } Return the new monogdb objectId if successfully saved to db, otherwise false.
+   * @return { ObjectId|Boolean } Return the new monogdb objectId if successfully saved
+   * to db, otherwise false.
    */
   async save() {
     const log = _log.extend('save')
@@ -682,7 +700,10 @@ class Album {
     const error = _error.extend('dir')
     try {
       log(`Opening album dir: ${this.#albumDir}`)
-      const dirIt = await fs.opendir(this.#albumDir, { encoding: 'utf8', bufferSize: 32, recursive: true })
+      const dirIt = await fs.opendir(
+        this.#albumDir,
+        { encoding: 'utf8', bufferSize: 32, recursive: true },
+      )
       return dirIt
     } catch (e) {
       error(`Error: ${this.#albumDir}`)
@@ -734,7 +755,11 @@ class Album {
     }
     try {
       exiftool.enableBinaryTagOutput(true)
-      metadata = await exiftool.getMetadata('', null, '-File:FileName -IPTC:ObjectName -MWG:all -preview:all -Composite:ImageSize')
+      metadata = await exiftool.getMetadata(
+        '',
+        null,
+        '-File:FileName -IPTC:ObjectName -MWG:all -preview:all -Composite:ImageSize',
+      )
       log(metadata);
       [image] = metadata
     } catch (e) {
@@ -744,7 +769,9 @@ class Album {
       throw new Error(err, { cause: e })
     }
     const img = image['File:FileName']
-    const imageUrl = (this.#albumImageUrl) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${img}` : ''
+    const imageUrl = (this.#albumImageUrl)
+      ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${img}`
+      : ''
     let thumbName
     let thumbUrl
     if (image?.['EXIF:ThumbnailImage']) {
@@ -753,7 +780,9 @@ class Album {
       const thumbPath = `${sourceParts.dir}/${thumbName}`
       const fullThumbPath = path.resolve('public', thumbPath)
       // log('thumb full path: ', fullThumbPath)
-      thumbUrl = `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${thumbName}`
+      thumbUrl = `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/')
+        ? '/'
+        : ''}${thumbName}`
       log(`thumbUrl: ${thumbUrl} \n`)
       const buffer = Buffer.from(image['EXIF:ThumbnailImage'].slice(7), 'base64')
       try {
@@ -837,8 +866,10 @@ class Album {
    * @param { Object } [image.resize] - An object literal containing size to resize image to.
    * @param { Number } [image.resize.w] - Resize width.
    * @param { Number } [image.resize.h] - Resize height.
-   * @param { String } [image.rotateFullSize] - Rotate the full size image by the given number of degress.
-   * @param { String } [image.rotateThumbnail] - Rotate the image thumbnail by the given number of degress.
+   * @param { String } [image.rotateFullSize] - Rotate the full size image by the given
+   * number of degress.
+   * @param { String } [image.rotateThumbnail] - Rotate the image thumbnail by the given
+   * number of degress.
    * @param { Boolean } [remakeThumb] - Force remaking thumbnail images.
    * @return { Object|Boolean } - ...
    */
@@ -935,7 +966,8 @@ class Album {
       //   embedThumbs = true
       // } catch (e) {
       //   error(e.message)
-      //   const msg = `Image Magick failed to rotate thumbnail image: ${theThumb} ${image.rotateFullSize} deg`
+      //   const msg = `Image Magick failed to rotate thumbnail image: `
+      //     + `${theThumb} ${image.rotateFullSize} deg`
       //   error(msg)
       //   throw new Error(msg, { cause: e })
       // }
@@ -950,7 +982,8 @@ class Album {
         embedThumbs = true
       } catch (e) {
         error(e.message)
-        const msg = `Image Magick failed to rotate thumbnail image: ${theThumb} ${image.rotateThumbnail} deg`
+        const msg = `Image Magick failed to rotate thumbnail image: ${theThumb} `
+          + `${image.rotateThumbnail} deg`
         error(msg)
         throw new Error(msg, { cause: e })
       }
@@ -1014,7 +1047,8 @@ class Album {
    * @summary Extract the metadata from the images in the album.
    * @author Matthew Duffy <mattduffy@gmail.com>
    * @async
-   * @return { Object|Boolean } - The extracted metadata in JSON format, or false if no images found.
+   * @return { Object|Boolean } - The extracted metadata in JSON format, or false if
+   * no images found.
    */
   async getMetadata() {
     const log = _log.extend('getMetadata')
@@ -1026,13 +1060,21 @@ class Album {
       const tempImagesArray = []
       const exiftool = await new Exiftool().init(this.#albumDir)
       exiftool.enableBinaryTagOutput(true)
-      this._metadata = await exiftool.getMetadata('', null, '-File:FileName -IPTC:ObjectName -MWG:all -preview:all -Composite:ImageSize')
+      this._metadata = await exiftool.getMetadata(
+        '',
+        null,
+        '-File:FileName -IPTC:ObjectName -MWG:all -preview:all -Composite:ImageSize',
+      )
       /* eslint-disable-next-line */
       for await (const img of this.#images) {
         const image = this._metadata.find((m) => m['File:FileName'] === img) ?? {}
         if (image) {
           // log(`this.#albumImageUrl: ${this.#albumImageUrl}`)
-          const imageUrl = (this.#albumImageUrl) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${img}` : ''
+          const imageUrl = (this.#albumImageUrl)
+            ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/')
+              ? '/'
+              : ''}${img}`
+            : ''
           log(`imageUrl: ${imageUrl}`)
           let thumbName
           let thumbUrl
@@ -1043,7 +1085,9 @@ class Album {
             const thumbPath = `${sourceParts.dir}/${thumbName}`
             const fullThumbPath = path.resolve('public', thumbPath)
             // log('thumb full path: ', fullThumbPath)
-            thumbUrl = `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${thumbName}`
+            thumbUrl = `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/')
+              ? '/'
+              : ''}${thumbName}`
             log(`thumbUrl: ${thumbUrl} \n`)
             const buffer = Buffer.from(image['EXIF:ThumbnailImage'].slice(7), 'base64')
             try {
@@ -1088,7 +1132,9 @@ class Album {
   async generateSizes(image, remakeThumb) {
     const log = this.#log.extend('generateSizes')
     const error = this.#error.extend('generateSizes')
-    const imageUrl = (this.#albumImageUrl) ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${image}` : ''
+    const imageUrl = (this.#albumImageUrl)
+      ? `${this.#albumImageUrl}${(this.#albumImageUrl.slice(-1) !== '/') ? '/' : ''}${image}`
+      : ''
     log(`imageUrl: ${imageUrl}`)
     let newJpegBig
     let newJpegMed
