@@ -40,6 +40,7 @@ const rootDir = path.resolve('test', testEnv.ROOTDIR)
 const uploads = path.resolve('test', testEnv.UPLOADSDIR)
 const archive = `${uploads}/marquetry.tar.gz`
 let ioredis
+let redis
 let prefix
 let mongodb
 let ObjectId
@@ -54,7 +55,8 @@ describe('First test for albums package', async () => {
     log(`uploads: ${uploads}`)
     if (testEnv.HAS_REDIS) {
       const { redisConn } = await import('../lib/redis-client.js')
-      ioredis = await redisConn('config/redis.env')
+      // ioredis = await redisConn('config/redis.env')
+      redis = await redisConn('config/redis.env')
       prefix = testEnv.REDIS_PREFIX
     }
     if (testEnv.HAS_MONGO) {
@@ -89,18 +91,25 @@ describe('First test for albums package', async () => {
   })
 
   after(async () => {
-    if (ioredis) {
-      const scan = ioredis.scanStream({ match: prefix, count: 2500 })
-      scan.on('data', (keys) => {
-        for (let i = 0; i < keys.length; i += 1) {
-          log(keys[i])
-        }
-      })
-      scan.on('end', () => {
-        log(`All test keys with prefix ${prefix} have been scanned.`)
-      })
-      prefix = undefined
-      ioredis.quit()
+    // if (ioredis) {
+    if (redis) {
+      // const scan = ioredis.scanStream({ match: prefix, count: 2500 })
+      // scan.on('data', (keys) => {
+      //   for (let i = 0; i < keys.length; i += 1) {
+      //     log(keys[i])
+      //   }
+      // })
+      // scan.on('end', () => {
+      //   log(`All test keys with prefix ${prefix} have been scanned.`)
+      // })
+      // prefix = undefined
+      // ioredis.quit()
+
+      /* eslint-disable no-restricted-syntax */
+      for await (const keys of redis.scanIterator({ match: prefix, count: 2500 })) {
+        log(keys)
+      }
+      /* eslint-enable no-restricted-syntax */
     }
     if (db) {
       await db.close()
@@ -121,7 +130,8 @@ describe('First test for albums package', async () => {
   it('should import and instantiate the Album class', () => {
     const opts = {
       collection,
-      ioredis,
+      // ioredis,
+      redis,
       rootDir,
       albumOwner: randomBytes(4).toString('base64url'),
     }
@@ -132,7 +142,8 @@ describe('First test for albums package', async () => {
   it('should have a rootDir path assigned', async () => {
     const opts = {
       collection,
-      ioredis,
+      // ioredis,
+      redis,
       rootDir,
       albumOwner: `user-${randomBytes(4).toString('base64url')}`,
     }
@@ -144,7 +155,8 @@ describe('First test for albums package', async () => {
   it('should successfully unpack the given album archive file first.', async () => {
     const opts = {
       collection,
-      ioredis,
+      // ioredis,
+      redis,
       rootDir,
       albumOwner: `user-${randomBytes(4).toString('base64url')}`,
     }
@@ -170,7 +182,10 @@ describe('First test for albums package', async () => {
       null,
       { rename: true, newName },
     )
-    assert.ok(secondExtracted.unpacked, `Second unpack (and rename ${newName} operation failed.`)
+    assert.ok(
+      secondExtracted.unpacked,
+      `Second unpack (and rename ${newName} operation failed.`,
+    )
   })
 
   it('should successfully iterate over the album directory.', async () => {
@@ -178,7 +193,8 @@ describe('First test for albums package', async () => {
     let image
     const opts = {
       collection,
-      ioredis,
+      // ioredis,
+      redis,
       rootDir,
       albumOwner: `user-${randomBytes(4).toString('base64url')}`,
     }
@@ -198,7 +214,8 @@ describe('First test for albums package', async () => {
     log(`album desciption: ${descriptionText}`)
     const opts = {
       collection,
-      ioredis,
+      // ioredis,
+      redis,
       rootDir,
       albumOwner: `user-${randomBytes(4).toString('base64url')}`,
     }
@@ -216,7 +233,8 @@ describe('First test for albums package', async () => {
     // log(metadata)
     const opts = {
       collection,
-      ioredis,
+      // ioredis,
+      redis,
       rootDir,
       albumOwner: `user-${randomBytes(4).toString('base64url')}`,
     }
@@ -234,7 +252,8 @@ describe('First test for albums package', async () => {
     // log(metadata)
     const opts = {
       collection,
-      ioredis,
+      // ioredis,
+      redis,
       rootDir,
       albumOwner: `user-${randomBytes(4).toString('base64url')}`,
       public: true,
