@@ -3,9 +3,9 @@ module.exports = {
     es2021: true,
     node: true,
   },
-  extends: [
-    'airbnb-base',
+  plugins: [
   ],
+  extends: 'airbnb-base',
   overrides: [
   ],
   parserOptions: {
@@ -18,6 +18,7 @@ module.exports = {
     'no-underscore-dangle': 'off',
     'import/extensions': 'off',
     'import/prefer-default-export': 'off',
-    'max-len': 'off',
+    'max-len': ['error', { code: 100 }],
+    'new-cap': 'off',
   },
 }
