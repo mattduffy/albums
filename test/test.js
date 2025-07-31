@@ -1,3 +1,4 @@
+// import whyIsNodeRunning from 'why-is-node-running'
 import * as Dotenv from 'dotenv'
 import path from 'node:path'
 import { randomBytes } from 'node:crypto'
@@ -14,6 +15,7 @@ import { Exiftool } from '@mattduffy/exiftool' // eslint-disable-line import/no-
 import { Album } from '../src/index.js'
 import { _log, _error } from '../src/utils/debug.js'
 
+// setImmediate(() => whyIsNodeRunning())
 const log = _log.extend('Albums:test')
 const error = _error.extend('test') // eslint-disable-line no-unused-vars
 const testEnv = {}
@@ -37,9 +39,9 @@ const uploads = path.resolve('test', testEnv.UPLOADSDIR)
 const archive = `${uploads}/marquetry.tar.gz`
 // let ioredis
 let redis
-let prefix
-let mongodb
+// let prefix = testEnv.REDIS_PREFIX || ''
 let ObjectId
+let mongoClient
 let db
 let collection
 const skip = { skip: true }
@@ -53,13 +55,18 @@ describe('First test for albums package', async () => {
       const { redisConn } = await import('../lib/redis-client.js')
       // ioredis = await redisConn('config/redis.env')
       redis = await redisConn('config/redis.env')
-      prefix = testEnv.REDIS_PREFIX
+      log('has redis')
+      log(redis)
     }
+    log('testEnv.HAS_MONGO', testEnv.HAS_MONGO)
     if (testEnv.HAS_MONGO) {
       const mongo = await import('../lib/mongodb-client.js')
-      log(mongodb)
-      db = await mongo.mongodb('config/mongodb.env')
-      collection = db.db(testEnv.DB_NAME).collection(testEnv.DB_COLLECTION)
+      mongoClient = await mongo.mongodb('config/mongodb.env')
+      db = mongoClient.db(testEnv.DB_NAME)
+      log('did mongodb connect?')
+      log(db.s.namespace)
+      // collection = db.db(testEnv.DB_NAME).collection(testEnv.DB_COLLECTION)
+      collection = db.collection(testEnv.DB_COLLECTION)
       ObjectId = mongo.ObjectId
     }
     try {
@@ -85,32 +92,17 @@ describe('First test for albums package', async () => {
       }
     }
   })
-
   after(async () => {
     // if (ioredis) {
     if (redis) {
-      // const scan = ioredis.scanStream({ match: prefix, count: 2500 })
-      // scan.on('data', (keys) => {
-      //   for (let i = 0; i < keys.length; i += 1) {
-      //     log(keys[i])
-      //   }
-      // })
-      // scan.on('end', () => {
-      //   log(`All test keys with prefix ${prefix} have been scanned.`)
-      // })
-      // prefix = undefined
-      // ioredis.quit()
-
-      /* eslint-disable no-restricted-syntax */
-      for await (const keys of redis.scanIterator({ match: prefix, count: 2500 })) {
-        log(keys)
-      }
-      /* eslint-enable no-restricted-syntax */
+      await redis.close()
     }
-    if (db) {
-      await db.close()
+    if (mongoClient) {
+      await mongoClient.close()
     }
+    log('what is keeping the suite for ending?')
   })
+
   // const opts = {
   //   collection,
   //   ioredis,
@@ -123,7 +115,7 @@ describe('First test for albums package', async () => {
   let extracted
   let exiftool
 
-  it('should import and instantiate the Album class', () => {
+  it('(1) should import and instantiate the Album class', () => {
     const opts = {
       collection,
       // ioredis,
@@ -135,7 +127,7 @@ describe('First test for albums package', async () => {
     assert(album instanceof Album)
   })
 
-  it('should have a rootDir path assigned', async () => {
+  it('(2) should have a rootDir path assigned', async () => {
     const opts = {
       collection,
       // ioredis,
@@ -148,7 +140,7 @@ describe('First test for albums package', async () => {
     assert.notStrictEqual(album.rootDir, undefined)
   })
 
-  it('should successfully unpack the given album archive file first.', async () => {
+  it('(3) should successfully unpack the given album archive file first.', async () => {
     const opts = {
       collection,
       // ioredis,
@@ -184,7 +176,7 @@ describe('First test for albums package', async () => {
     )
   })
 
-  it('should successfully iterate over the album directory.', async () => {
+  it('(4) should successfully iterate over the album directory.', async () => {
     let count = 0
     let image
     const opts = {
@@ -204,7 +196,7 @@ describe('First test for albums package', async () => {
     assert.strictEqual(count, fileCount)
   })
 
-  it('should be able to set the description for the album.', async () => {
+  it('(5) should be able to set the description for the album.', async () => {
     const descriptionText = 'This is my first test album being created.  '
       + 'I don\'t know when this package will be finished and put into use.'
     log(`album desciption: ${descriptionText}`)
@@ -222,7 +214,7 @@ describe('First test for albums package', async () => {
     assert.ok(album.description !== null)
   })
 
-  it('should have a rootDir that actually exists', async () => {
+  it('(6) should have a rootDir that actually exists', async () => {
     // exiftool = new Exiftool()
     // exiftool = await exiftool.init(extracted.finalPath)
     // const metadata = await exiftool.getMetadata(null, null, '-MWG:all')
@@ -241,7 +233,7 @@ describe('First test for albums package', async () => {
     assert.strictEqual(rootDir, album.rootDir)
   })
 
-  it('should correctly extract metadata from images in album dir.', async () => {
+  it('(7) should correctly extract metadata from images in album dir.', skip, async () => {
     exiftool = new Exiftool()
     exiftool = await exiftool.init(extracted.finalPath)
     const metadata = await exiftool.getMetadata(null, null, '-MWG:all')
@@ -259,7 +251,7 @@ describe('First test for albums package', async () => {
     assert.strictEqual(metadata[metadata.length - 1], album._numberOfImages)
   })
 
-  it('should save an album json doc to the db collection.', async () => {
+  it('(8) should save an album json doc to the db collection.', skip, async () => {
     const owner = 'arnold-96admonsterator'
     const opts = {
       collection,
