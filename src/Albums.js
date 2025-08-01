@@ -27,7 +27,7 @@ class Albums {
    * @async
    * @param { MongoClient|Collection } mongo - Either a mongodb client connection or its
    * album collection.
-   * @param { Redis } redis - A redis clint connection instance.
+   * @param { Redis } redis - A redis client connection instance.
    * @param { String } id - The string value of an ObjectId to search the db for.
    * @return { Album|Boolean } - A populated instance of an Album if found, otherwise false.
    */
@@ -65,7 +65,7 @@ class Albums {
    * @async
    * @param { MongoClient|Collection } mongo - Either a mongodb client connection or
    * its album collection.
-   * @param { Redis } redis - A redis clint connection instance.
+   * @param { Redis } redis - A redis client connection instance.
    * @param { String } name - The string value of an album's name to search the db for.
    * @return { Album|Boolean } - A populated instance of an Album if found, otherwise false.
    */
@@ -103,7 +103,7 @@ class Albums {
    * @async
    * @param { MongoClient|Collection } mongo - Either a mongodb client connection or its
    * album collection.
-   * @param { Redis } redis - A redis clint connection instance.
+   * @param { Redis } redis - A redis client connection instance.
    * @param { String } slug - The string value of an album's slug to search the db for.
    * @return { Album|Boolean } - A populated instance of an Album if found, otherwise false.
    */
