@@ -1,7 +1,7 @@
 /**
  * @module @mattduffy/albums
  * @author Matthew Duffy <mattduffy@gmail.com>
- * @file src/index.js The Album class definition file.
+ * @file src/image.js The Image class definition file.
  */
 
 import path from 'node:path'
@@ -20,11 +20,12 @@ const _log = Log.extend('image')
 const _info = Info.extend('image')
 const _warn = Warn.extend('image')
 const _error = Error.extend('image')
-const IMAGES = 'images'
+const ALBUMS = 'albums'
+// const IMAGES = 'images'
 
 /**
- * A class to model the shape a properties of an Image in an album.
- * @summary A class to model the shape a properties of an Image in an album.
+ * A class to model the shape and properties of an Image in an album.
+ * @summary A class to model the shape and properties of an Image in an album.
  * @class Image
  * @author Matthew Duffy <mattduffy@gmail.com>
  */
@@ -33,20 +34,17 @@ class Image {
 
   #error
 
+  #imagePath
+
+  #mongo
+
+  #db
+
   /**
    * Create an instance of Image.
    * @summary Create an instance of Image.
    * @param { Object } config - An object literal contain configuration properties.
-   * @param { string } config.rootDir - A string path for the root directory for all albums.
-   * @param { string } config.albumId - A string of the unique album id.
-   * @param { string } config.albumDir - A string of the album file system path.
-   * @param { string } config.albumUrl - Path portion of public url for the album.
-   * @param { string } config.albumImageUrl - Path portion of the public href url from the album images.
-   * @param { string } config.albumName - The name of the album.
-   * @param { string } config.albumOwer - The name of the album owner.
-   * @param { Object[] } config.albumImages - An array of JSON objects, each describing an image.
-   * @param { Boolean } config.public - The visibilty status of the album.
-   * @param { Object } config.redis - An instance of a redis connection.
+   * @param { string } config.albumImagePath - Path of the image on the file system.
    * @param { string } config.dbName - A string with the db name if needed.
    * @param { Object } config.mongo - An instance of a mongoDB connection.
    * @param { Object } config.collection - A refernce to a mongoDB collection.
@@ -56,7 +54,19 @@ class Image {
     // private properties
     this.#log = _log.extend('constructor')
     this.#error = _error.extend('constructor')
+    this.#imagePath = config.albumImagePath
+    this.#mongo = config?.mongo ?? config?.db ?? null
+    if ((!config.collection) && (!this.#mongo?.s?.namespace?.collection)) {
+      console.log(this.#mongo)
+      this.#db = this.#mongo.db(config.dbName ?? process.env.DB_NAME).collection(ALBUMS)
+    } else if (config.collection?.collectionName !== undefined) {
+      this.#db = config.collection
+    } else {
+      this.#db = null
+    }
   }
+
+  
 }
 
 export { Image }

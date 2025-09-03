@@ -249,9 +249,6 @@ class Albums {
    */
   static async recentlyAdded(redis, count = 10) {
     let recentlyAddedStream = 'albums:recent:10'
-    // ioredis command version
-    // const response = await redis.xrevrange(recentlyAddedStream, '+', '-', 'COUNT', count)
-    // official redis command version
     recentlyAddedStream = `mmt:${recentlyAddedStream}`
     const response = await redis.xRevRange(recentlyAddedStream, '+', '-', { COUNT: count })
     console.log(`redis: xrevrange ${recentlyAddedStream} + - COUNT ${count}`)
