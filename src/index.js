@@ -212,13 +212,15 @@ class Album {
         this.#rootDir = parsedAlbumPath.dir
       }
     }
-    log(this.#rootDir, '\n', this.#albumDir)
+    log('\n', '\t', this.#rootDir, '\n', '\t', this.#albumDir)
     if (!this.#albumUrl) {
       this.#albumUrl += parsedAlbumPath.base
       log(`#album url: ${this.#albumUrl}`)
     }
     if (!this.#albumImageUrl) {
+      log('parsedAlbumPath', parsedAlbumPath)
       const basePath = /public\/(?<p>.*)$/.exec(parsedAlbumPath.dir)
+      log('basePath', basePath)
       this.#albumImageUrl = `${basePath.groups.p}/${parsedAlbumPath.base}`
       log(`#album image url being set to: ${this.#albumImageUrl}`)
     }
@@ -305,9 +307,6 @@ class Album {
     // }
     if (this.#streamId) {
       try {
-        // ioredis command version
-        // const response = await this.#redis.xdel('albums:recent:10', this.#streamId)
-        // official redis command
         const response = await this.#redis.xDel('mmt:albums:recent:10', this.#streamId)
         this.#streamId = null
         log(response)
@@ -347,9 +346,6 @@ class Album {
     if (this.#streamId) {
       log(`album already has a streamId: ${this.#streamId}, clear it and re-add.`)
       try {
-        // ioredis command version
-        // const clear = await this.#redis.xdel('albums:recent:10', this.#streamId)
-        // official redis command
         const clear = await this.#redis.xDel('mmt:albums:recent:10', this.#streamId)
         log(clear)
       } catch (e) {
