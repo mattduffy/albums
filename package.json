@@ -22,11 +22,13 @@
   },
   "scripts": {
     "testx": "DEBUG=* DOTENV_CONFIG_DEBUG=true DOTENV_CONFIG_PATH=test/test.env DOTENV_CONFIG_PROCESS_ENV=testEnv node --test --require dotenv/config test/test.js",
+    "lint": "eslint --",
     "test": "DEBUG=* node --test test/test.js"
   },
   "devDependencies": {
-    "eslint": "8.26.0",
+    "eslint": "8.57.1",
     "eslint-config-airbnb-base": "15.0.0",
+    "eslint-import-resolver-exports": "1.0.0-beta.5",
     "eslint-plugin-import": "2.26.0",
     "redis-om": "0.3.6"
   },
@@ -35,7 +37,7 @@
     "@mattduffy/unpacker": "file:../unpacker",
     "debug": "4.3.4",
     "dotenv": "16.4.5",
-    "magickwand.js": "1.1.0",
+    "magickwand.js": "2.1.0",
     "mongodb": "6.5.0",
     "redis": "5.6.0",
     "why-is-node-running": "3.2.2"
