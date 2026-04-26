@@ -4,11 +4,11 @@
  * @file src/image.js The Image class definition file.
  */
 
-import path from 'node:path'
-import fs from 'node:fs/promises'
-import { Exiftool } from '@mattduffy/exiftool' // eslint-disable-line import/no-unresolved
-import { Thumbnail } from './thumbnail.js'
-import { ObjectId } from '../lib/mongodb-client.js'
+// import path from 'node:path'
+// import fs from 'node:fs/promises'
+// import { Exiftool } from '@mattduffy/exiftool' // eslint-disable-line import/no-unresolved
+// import { Thumbnail } from './thumbnail.js'
+// import { ObjectId } from '../lib/mongodb-client.js'
 import {
   _log as Log,
   _info as Info,
@@ -32,6 +32,10 @@ const ALBUMS = 'albums'
 class Image {
   #log
 
+  #info
+
+  #warn
+
   #error
 
   #imagePath
@@ -54,19 +58,20 @@ class Image {
     // private properties
     this.#log = _log.extend('constructor')
     this.#error = _error.extend('constructor')
+    this.#warn = _warn.extend('constructor')
+    this.#info = _info.extend('constructor')
     this.#imagePath = config.albumImagePath
     this.#mongo = config?.mongo ?? config?.db ?? null
     if ((!config.collection) && (!this.#mongo?.s?.namespace?.collection)) {
-      console.log(this.#mongo)
+      this.#log(this.#mongo)
       this.#db = this.#mongo.db(config.dbName ?? process.env.DB_NAME).collection(ALBUMS)
     } else if (config.collection?.collectionName !== undefined) {
+      this.#info('collection', config.collection)
       this.#db = config.collection
     } else {
       this.#db = null
     }
   }
-
-  
 }
 
 export { Image }

@@ -6,7 +6,8 @@
 
 import path from 'node:path'
 import fs from 'node:fs/promises'
-import { Magick } from 'magickwand.js'
+// import { Magick } from 'magickwand.js'
+import ImageMagick from 'magickwand.js'
 import { Exiftool } from '@mattduffy/exiftool' // eslint-disable-line import/no-unresolved
 // import { Image } from './image.js'
 import { ObjectId } from '../lib/mongodb-client.js'
@@ -17,6 +18,10 @@ import {
   _error as _Error,
 } from './utils/debug.js'
 
+const {
+  Magick,
+  // MagickCore,
+} = await ImageMagick
 const _log = Log.extend('album')
 const _info = Info.extend('album')
 const _warn = Warn.extend('album')

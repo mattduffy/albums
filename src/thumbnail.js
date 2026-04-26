@@ -1,13 +1,14 @@
 /**
  * @module @mattduffy/albums
  * @author Matthew Duffy <mattduffy@gmail.com>
- * @file src/thumbnail.js The Thumbnail class definition file.
+ * @summary The Thumbnail class definition file.
+ * @file src/thumbnail.js
  */
 
-import path from 'node:path'
-import fs from 'node:fs/promises'
-import { Exiftool } from '@mattduffy/exiftool' // eslint-disable-line import/no-unresolved
-import { ObjectId } from '../lib/mongodb-client.js'
+// import path from 'node:path'
+// import fs from 'node:fs/promises'
+// import { Exiftool } from '@mattduffy/exiftool' // eslint-disable-line import/no-unresolved
+// import { ObjectId } from '../lib/mongodb-client.js'
 import {
   _log as Log,
   _info as Info,
@@ -30,6 +31,10 @@ const THUMBNAILS = 'thumbnails'
 class Thumbnail {
   #log
 
+  #info
+
+  #warn
+
   #error
 
   /**
@@ -45,7 +50,12 @@ class Thumbnail {
   constructor(config = {}) {
     // private properties
     this.#log = _log.extend('constructor')
+    this.#info = _info.extend('constructor')
+    this.#warn = _warn.extend('contructor')
     this.#error = _error.extend('constructor')
+    if (!config.collection) {
+      this.#warn('collection should be ', THUMBNAILS)
+    }
   }
 }
 
