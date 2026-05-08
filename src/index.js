@@ -6,8 +6,8 @@
 
 import path from 'node:path'
 import fs from 'node:fs/promises'
-// import { Magick } from 'magickwand.js'
-import ImageMagick from 'magickwand.js'
+import { Magick } from 'magickwand.js' // magickwand.js@v1.1.0
+// import ImageMagick from 'magickwand.js' // magickwand.js@v2.1.0
 import { Exiftool } from '@mattduffy/exiftool' // eslint-disable-line import/no-unresolved
 // import { Image } from './image.js'
 import { ObjectId } from '../lib/mongodb-client.js'
@@ -18,10 +18,11 @@ import {
   _error as _Error,
 } from './utils/debug.js'
 
-const {
-  Magick,
-  // MagickCore,
-} = await ImageMagick
+// this is for version 2.1.0 of magickwand.js
+// const {
+//   Magick,
+//   // MagickCore,
+// } = await ImageMagick
 const _log = Log.extend('album')
 const _info = Info.extend('album')
 const _warn = Warn.extend('album')
@@ -281,7 +282,7 @@ class Album {
           log(`setting album preview image to: ${this.#albumPreviewImage}`)
         }
       } catch (e) {
-        const msg = 'Image Magick resising failed.'
+        const msg = 'Image Magick resizing failed.'
         throw new Error(msg, { cause: e })
       }
     }

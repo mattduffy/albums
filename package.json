@@ -37,7 +37,7 @@
     "@mattduffy/unpacker": "file:../unpacker",
     "debug": "4.3.4",
     "dotenv": "16.4.5",
-    "magickwand.js": "2.1.0",
+    "magickwand.js": "1.1.0",
     "mongodb": "6.5.0",
     "redis": "5.6.0",
     "why-is-node-running": "3.2.2"
